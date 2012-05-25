@@ -109,7 +109,7 @@ outer:
             return false;
         }
         if ( internalBufferToTokens( startOffset , delimiterSeen ) ) {
-            buffer.setLength( 0 );
+            buffer.setLength( 0 ); // buffer has been consued
             return true;
         }
         return false;
@@ -117,33 +117,37 @@ outer:
     
     private boolean internalBufferToTokens(int startOffset,boolean delimiterSeen) 
     {
-        if ( "OR".equalsIgnoreCase( buffer.toString() ) ) {
-            tokens.add( new Token( buffer , startOffset , TokenType.OR ) );
+        String buf = buffer.toString();
+        if ( "OR".equalsIgnoreCase( buf ) ) {
+            tokens.add( new Token( buf , startOffset , TokenType.OR ) );
             return true;
         }
-        if ( "AND".equalsIgnoreCase( buffer.toString() ) ) {
-            tokens.add(new Token( buffer , startOffset , TokenType.AND ) );
+        if ( "AND".equalsIgnoreCase( buf ) ) {
+            tokens.add(new Token( buf , startOffset , TokenType.AND ) );
             return true;
         }    
-        if ( "NOT".equalsIgnoreCase( buffer.toString() ) ) {
-            tokens.add( new Token( buffer , startOffset , TokenType.NOT ) );
+        
+        if ( "NOT".equalsIgnoreCase( buf ) ) {
+            tokens.add( new Token( buf , startOffset , TokenType.NOT ) );
             return true;
         }  
-        if ( "true".equalsIgnoreCase( buffer.toString() ) ) {
-            tokens.add( new Token( buffer , startOffset , TokenType.TRUE ) );
+        
+        if ( "true".equalsIgnoreCase( buf ) || "yes".equalsIgnoreCase( buf ) || "1".equalsIgnoreCase( buf ) || "on".equalsIgnoreCase( buf ) ) {
+            tokens.add( new Token( buf , startOffset , TokenType.TRUE ) );
             return true;
-        }  
-        if ( "false".equalsIgnoreCase( buffer.toString() ) ) {
-            tokens.add( new Token( buffer , startOffset , TokenType.FALSE ) );
+        }
+        
+        if ( "false".equalsIgnoreCase( buf ) || ( "no".equalsIgnoreCase( buf ) && delimiterSeen ) || "0".equalsIgnoreCase( buf ) || "off".equalsIgnoreCase( buf )) {
+            tokens.add( new Token( buf , startOffset , TokenType.FALSE ) );
             return true;
         }         
         
         if ( delimiterSeen ) 
         {
-            if ( Identifier.isValidIdentifier( buffer.toString() ) ) {
-                tokens.add( new Token( buffer , startOffset , TokenType.IDENTIFIER ) );                
+            if ( Identifier.isValidIdentifier( buf ) ) {
+                tokens.add( new Token( buf , startOffset , TokenType.IDENTIFIER ) );                
             } else {
-                tokens.add( new Token( buffer , startOffset , TokenType.CHARACTERS ) );
+                tokens.add( new Token( buf , startOffset , TokenType.CHARACTERS ) );
             }
             return true;
         }

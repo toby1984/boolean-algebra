@@ -41,9 +41,43 @@ public class LexerTest  extends TestCase
         }           
     }  
     
+    public void testParseLiterals() 
+    {
+        String expr = " true 1 yes on false 0 no off";
+        
+        lexer = new Lexer(new Scanner( expr ) );
+        assertFalse( lexer.eof() );
+        
+        Token tok = lexer.read(TokenType.TRUE);
+        assertEquals("true" , tok.getContents() );
+        
+        tok = lexer.read(TokenType.TRUE);
+        assertEquals("1" , tok.getContents() );
+        
+        tok = lexer.read(TokenType.TRUE);
+        assertEquals("yes" , tok.getContents() );
+        
+        tok = lexer.read(TokenType.TRUE);
+        assertEquals("on" , tok.getContents() );    
+        
+        tok = lexer.read(TokenType.FALSE);
+        assertEquals("false" , tok.getContents() );           
+        
+        tok = lexer.read(TokenType.FALSE);
+        assertEquals("0" , tok.getContents() );  
+        
+        tok = lexer.read(TokenType.FALSE);
+        assertEquals("no" , tok.getContents() );  
+        
+        tok = lexer.read(TokenType.FALSE);
+        assertEquals("off" , tok.getContents() );   
+        
+        assertTrue(lexer.eof() );
+    }
+    
     public void testLexExpression() 
     {
-        String expr = "  a   or   not  (  b  and  c )  =  d $#!  ";
+        String expr = "  a   or   not  (  b  and  c )  =  d or false and true $#!  ";
         
         lexer = new Lexer(new Scanner( expr ) );
         assertFalse( lexer.eof() );
@@ -77,6 +111,18 @@ public class LexerTest  extends TestCase
         
         tok = lexer.read(TokenType.IDENTIFIER);
         assertEquals("d" , tok.getContents() );   
+        
+        tok = lexer.read(TokenType.OR);
+        assertEquals("or" , tok.getContents() );       
+        
+        tok = lexer.read(TokenType.FALSE);
+        assertEquals("false" , tok.getContents() );  
+        
+        tok = lexer.read(TokenType.AND);
+        assertEquals("and" , tok.getContents() );    
+        
+        tok = lexer.read(TokenType.TRUE);
+        assertEquals("true" , tok.getContents() );          
         
         tok = lexer.read(TokenType.CHARACTERS);
         assertEquals("$#!" , tok.getContents() );  
