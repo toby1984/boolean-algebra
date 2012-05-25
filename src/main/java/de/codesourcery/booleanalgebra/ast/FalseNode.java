@@ -21,14 +21,34 @@ public class FalseNode extends ASTNode
     }
     
     @Override
+    public boolean isLiteralValue() {
+    	return true;
+    }
+    
+    @Override
     public String toString()
     {
         return "false";
     }
     
     @Override
-    public boolean evaluate(IExpressionContext context)
+    public ASTNode evaluate(IExpressionContext context)
     {
-        return false;
+        return this;
     }  
+    
+    @Override
+    public boolean getLiteralValue(IExpressionContext context) {
+    	return false;
+    }   
+    
+	@Override
+	protected FalseNode copyThisNode() {
+		return new FalseNode();
+	} 	
+	
+	@Override
+    public boolean hasLiteralValue(IExpressionContext context) {
+    	return true;
+    }	
 }

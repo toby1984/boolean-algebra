@@ -109,19 +109,59 @@ public class OperatorNode extends ASTNode
         }
     }
     
+	@Override
+	public boolean hasLiteralValue(IExpressionContext context) 
+	{
+		ASTNode result = evaluate( context );
+		return result != this && result.hasLiteralValue( context );
+	}      
+	
+	private ASTNode toNode(boolean value) {
+		if ( value == true ) {
+			return new TrueNode();
+		}
+		return new FalseNode();
+	}
+    
     @Override
-    public boolean evaluate(IExpressionContext context)
+    public ASTNode evaluate(IExpressionContext context)
     {
         switch( getType() ) {
+            case OR: 
+            	// $FALL-THROUGH$
             case AND:
-                return child(0).evaluate(context) & child(1).evaluate( context );
+            	ASTNode leftChild = child(0);
+            	ASTNode rightChild = child(1);
+            	if ( leftChild.hasLiteralValue(context) && rightChild.hasLiteralValue(context) ) 
+            	{
+                    switch( getType() ) {
+                    	case OR:
+                    		return toNode( leftChild.getLiteralValue( context ) | rightChild.getLiteralValue( context ) );
+                        case AND:
+                    	    return toNode( leftChild.getLiteralValue( context ) & rightChild.getLiteralValue( context ) );                    	
+                    	default:
+                            throw new RuntimeException("Unhandled type "+getType() );                     		
+                    }
+            	}
+                break;
             case NOT:
-                return ! child(0).evaluate( context );
-            case OR:
-                return child(0).evaluate(context) | child(1).evaluate( context );
+            	leftChild = child(0).evaluate( context );
+            	if ( leftChild.hasLiteralValue( context ) ) {
+            		return toNode( leftChild.getLiteralValue( context ) );
+            	}
+                break;
             default:
                 throw new RuntimeException("Unhandled type "+getType() );                
         }        
-    }  
+        return this;
+    }
+
+	@Override
+	protected OperatorNode copyThisNode() {
+		if ( this.type == null ) {
+			return new OperatorNode();
+		}
+		return new OperatorNode(this.type);
+	}  
     
 }

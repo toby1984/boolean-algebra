@@ -15,6 +15,11 @@ public class TrueNode extends ASTNode
     }
 
     @Override
+    public boolean isLiteralValue() {
+    	return true;
+    }
+    
+    @Override
     public ASTNode parse(ILexer lexer, ASTNode previousNode) throws ParseException
     {
         lexer.read(TokenType.TRUE);
@@ -28,9 +33,23 @@ public class TrueNode extends ASTNode
     }
 
     @Override
-    public boolean evaluate(IExpressionContext context)
+    public ASTNode evaluate(IExpressionContext context)
     {
-        return true;
+        return this;
+    }
+
+    @Override
+    public boolean getLiteralValue(IExpressionContext context) {
+    	return true;
     }    
 
+	@Override
+	protected TrueNode copyThisNode() {
+		return new TrueNode();
+	}    
+
+	@Override
+    public boolean hasLiteralValue(IExpressionContext context) {
+    	return true;
+    }	
 }

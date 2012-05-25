@@ -3,6 +3,7 @@ package de.codesourcery.booleanalgebra.ast;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 import de.codesourcery.booleanalgebra.IExpressionContext;
 import de.codesourcery.booleanalgebra.exceptions.ParseException;
@@ -25,7 +26,31 @@ public abstract class ASTNode
         }
     }
     
-    public abstract boolean evaluate(IExpressionContext context);
+    public boolean getLiteralValue(IExpressionContext context) {
+    	return false;
+    }
+    
+    public boolean isLiteralValue() {
+    	return false;
+    }
+    
+    public boolean hasLiteralValue(IExpressionContext context) {
+    	return false;
+    }
+    
+    public final ASTNode createCopy(boolean copyChildren) {
+    	ASTNode result = copyThisNode();
+    	if ( copyChildren ) {
+    		for ( ASTNode child : children() ) {
+    			result.addChild( child.createCopy( true ) );
+    		}
+    	}
+    	return result;
+    }
+    
+    protected abstract ASTNode copyThisNode();
+    
+    public abstract ASTNode evaluate(IExpressionContext context);
     
     protected boolean hasChild(int index) {
         return index >= 0 && index < children.size();
@@ -44,7 +69,52 @@ public abstract class ASTNode
         return parent;
     }
     
-    public boolean visitInOrder(INodeVisitor visitor) {
+    public boolean visitPreOrder(INodeVisitor visitor) {
+        
+        if ( ! visitor.visit( this ) ) {
+            return false;
+        }
+        
+        for ( ASTNode child : this.children ) {
+            if ( ! child.visitInOrder( visitor ) ) {
+                return false;
+            }
+        }
+        return true;
+    }
+    
+    public void replaceWith(ASTNode other) {
+    	getParent().replaceChild( this , other );
+    }
+    
+    public void replaceChild(ASTNode childToReplace, ASTNode newChild) 
+    {
+    	if ( childToReplace == null ) {
+			throw new IllegalArgumentException("childToReplace must not be null");
+		}
+    	if ( newChild == null ) {
+			throw new IllegalArgumentException("newChild must not be null");
+		}
+    	int index = -1;
+    	int i = 0;
+    	for ( ASTNode child : children ) {
+    		if ( child == childToReplace ) {
+    			index = i;
+    			break;
+    		}
+    		i++;
+    	}
+    	if ( index == -1 ) {
+    		throw new NoSuchElementException("can't find child "+childToReplace+" on "+this);
+    	}
+    	
+    	children.remove( index );
+    	childToReplace.setParent(null);
+    	children.add( index , newChild );
+    	newChild.setParent( this );
+	}
+
+	public boolean visitInOrder(INodeVisitor visitor) {
         
         for ( ASTNode child : this.children ) {
             if ( ! child.visitInOrder( visitor ) ) {

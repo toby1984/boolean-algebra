@@ -9,6 +9,16 @@ public class IdentifierNode extends ASTNode
 {
     private Identifier identifier;
     
+    public IdentifierNode() {
+    }
+    
+    public IdentifierNode(Identifier identifier) {
+    	if (identifier == null) {
+			throw new IllegalArgumentException("identifier must not be null");
+		}
+    	this.identifier = identifier;
+    }
+    
     @Override
     protected int getMaxSupportedChildCount()
     {
@@ -39,8 +49,28 @@ public class IdentifierNode extends ASTNode
     }
     
     @Override
-    public boolean evaluate(IExpressionContext context)
+    public ASTNode evaluate(IExpressionContext context)
     {
-        return context.lookup( identifier );
-    }  
+        boolean value = context.lookup( identifier );
+        return value ? new TrueNode() : new FalseNode();
+    }
+
+	@Override
+	protected IdentifierNode copyThisNode() 
+	{
+		if ( this.identifier == null ) {
+			return new IdentifierNode();
+		}
+		return new IdentifierNode( this.identifier );
+	}  
+	
+	@Override
+    public boolean hasLiteralValue(IExpressionContext context) {
+    	return context.tryLookup( identifier ) != null;
+    }	
+	
+    public boolean getLiteralValue(IExpressionContext context) {
+    	return context.lookup( identifier );
+    }
+    
 }

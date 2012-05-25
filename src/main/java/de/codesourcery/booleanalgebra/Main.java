@@ -1,11 +1,12 @@
 package de.codesourcery.booleanalgebra;
 
+import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.WordUtils;
 
+import de.codesourcery.booleanalgebra.ast.ASTNode;
 import de.codesourcery.booleanalgebra.ast.Identifier;
 import de.codesourcery.booleanalgebra.ast.TermNode;
 
@@ -54,17 +55,28 @@ public class Main
         }        
     }
     
+    private static TermNode parseTerm(String s) {
+    	return new BooleanExpressionParser().parseTerm( s );
+    }
     public static void main(String[] args)
     {
-        final String expr = " a or b and c";
+        final String expr = " a or b";
+        final String expr2 = " (true or false) and x";
         
-        final TermNode term = new BooleanExpressionParser().parseTerm( expr );
+        Context ctx = new Context();
+        
+        TermNode term2 = parseTerm( expr2 );
+		ASTNode reduced2 = ASTTransformations.reduce( term2 , ctx );
+        System.out.println("REDUCED: "+term2+" -> "+reduced2 );
+        
+        final TermNode term = parseTerm( expr );
         
         Identifier a = Identifier.id("a");
         Identifier b = Identifier.id("b");
         Identifier c = Identifier.id("c");
+
+
         
-        Context ctx = new Context();
         int value = 0;
         for ( ; value <= 7 ; value++ ) {
             ctx.setVariable( a , (value & 4) != 0 );
@@ -74,6 +86,9 @@ public class Main
             System.out.print( " | "+padRight( " b= "+ctx.lookup( b ) , 10 ) );
             System.out.print( " | "+padRight( " c= "+ctx.lookup( c ) , 10 ) );
             System.out.print(" | "+expr+" = "+term.evaluate( ctx ) );
+            
+            ASTNode reduced = ASTTransformations.reduce( term , ctx );
+            System.out.print(" | reduced = "+reduced);
             System.out.println();
         }
     }

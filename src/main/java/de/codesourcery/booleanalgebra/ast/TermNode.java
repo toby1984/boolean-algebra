@@ -331,9 +331,20 @@ public class TermNode extends ASTNode
         }
         return "("+result.toString()+")";
     }
+    
+    @Override
+    public boolean hasLiteralValue(IExpressionContext context) {
+    	return child(0).hasLiteralValue( context );
+    }
+    
+	@Override
+	protected TermNode copyThisNode() 
+	{
+		return new TermNode();
+	}     
 
     @Override
-    public boolean evaluate(IExpressionContext context)
+    public ASTNode evaluate(IExpressionContext context)
     {
         return child(0).evaluate( context );
     }

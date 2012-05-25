@@ -40,9 +40,19 @@ public class BooleanExpression extends ASTNode
     }
 
     @Override
-    public boolean evaluate(IExpressionContext context)
+    public ASTNode evaluate(IExpressionContext context)
     {
         throw new UnsupportedOperationException("Cannot evaluate an expression,only terms");
     }
+
+	@Override
+	public boolean hasLiteralValue(IExpressionContext context) {
+        return false;
+	}
+
+	@Override
+	protected BooleanExpression copyThisNode() {
+		return new BooleanExpression();
+	}
 
 }
