@@ -1,5 +1,7 @@
 package de.codesourcery.booleanalgebra.ast;
 
+import org.apache.commons.lang.ObjectUtils;
+
 import de.codesourcery.booleanalgebra.IExpressionContext;
 import de.codesourcery.booleanalgebra.exceptions.ParseException;
 import de.codesourcery.booleanalgebra.lexer.ILexer;
@@ -26,7 +28,7 @@ public class IdentifierNode extends ASTNode
     }
 
     @Override
-    public ASTNode parse(ILexer lexer, ASTNode previousNode) throws ParseException
+    public ASTNode parse(ILexer lexer) throws ParseException
     {
         final int start = lexer.currentParseOffset();
         final String tmp = lexer.read(TokenType.IDENTIFIER).getContents();
@@ -43,16 +45,15 @@ public class IdentifierNode extends ASTNode
     }
     
     @Override
-    public String toString()
+    public String toString(boolean prettyPrint)
     {
         return identifier.toString();
     }
     
     @Override
-    public ASTNode evaluate(IExpressionContext context)
+	public ASTNode evaluate(IExpressionContext context)
     {
-        boolean value = context.lookup( identifier );
-        return value ? new TrueNode() : new FalseNode();
+        return context.tryLookup( identifier );
     }
 
 	@Override
@@ -65,12 +66,36 @@ public class IdentifierNode extends ASTNode
 	}  
 	
 	@Override
-    public boolean hasLiteralValue(IExpressionContext context) {
-    	return context.tryLookup( identifier ) != null;
+	public boolean isEquivalent(ASTNode other, IExpressionContext context) 
+	{
+		if ( other instanceof IdentifierNode) {
+			return ObjectUtils.equals( this.identifier , ((IdentifierNode) other).getIdentifier() );
+		}
+		return false;
+	}
+	
+	@Override
+    public boolean hasLiteralValue(IExpressionContext context) 
+	{
+    	ASTNode value = context.tryLookup( identifier );
+    	if ( value != null && value.isLiteralValue() ) {
+    		return true;
+    	}
+    	return false;
     }	
 	
     public boolean getLiteralValue(IExpressionContext context) {
-    	return context.lookup( identifier );
+    	return context.lookup( identifier ).getLiteralValue( context );
     }
+
+	@Override
+	public boolean isEquals(ASTNode other) 
+	{
+		if ( other instanceof IdentifierNode) 
+		{
+			return ObjectUtils.equals( this.identifier , ((IdentifierNode) other).identifier );
+		}
+		return false;
+	}
     
 }

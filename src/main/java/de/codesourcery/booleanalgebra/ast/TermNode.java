@@ -10,11 +10,19 @@ import de.codesourcery.booleanalgebra.lexer.TokenType;
 
 public class TermNode extends ASTNode
 {
-
     @Override
     protected int getMaxSupportedChildCount()
     {
         return 1;
+    }
+    
+    public TermNode() {
+    	super();
+    }
+    
+    
+    public TermNode(ASTNode child) {
+    	super( child );
     }
     
     protected class Operator 
@@ -83,7 +91,7 @@ public class TermNode extends ASTNode
     }
     
     @Override
-    public ASTNode parse(ILexer lexer, ASTNode prev) throws ParseException
+    public ASTNode parse(ILexer lexer) throws ParseException
     {
         /*
          * CHARACTERS,
@@ -121,27 +129,32 @@ public class TermNode extends ASTNode
             
             if ( tok.hasType( TokenType.IDENTIFIER ) ) 
             {
-                lastAddedNode = pushToStack( operatorStack , valueStack , new IdentifierNode().parse(lexer , lastAddedNode ) , lastAddedNode  );
+                lastAddedNode = pushToStack( operatorStack , valueStack , new IdentifierNode().parse(lexer ) , lastAddedNode  );
             } 
             else if ( tok.hasType( TokenType.TRUE ) ) 
             {
-                lastAddedNode = pushToStack( operatorStack , valueStack , new TrueNode().parse(lexer , lastAddedNode ) , lastAddedNode  );
+                lastAddedNode = pushToStack( operatorStack , valueStack , new TrueNode().parse(lexer ) , lastAddedNode  );
             } 
             else if ( tok.hasType( TokenType.FALSE ) ) 
             {
-                lastAddedNode = pushToStack( operatorStack , valueStack , new FalseNode().parse(lexer , lastAddedNode ) , lastAddedNode );
+                lastAddedNode = pushToStack( operatorStack , valueStack , new FalseNode().parse(lexer ) , lastAddedNode );
             } 
             else if ( tok.hasType( TokenType.AND ) || tok.hasType( TokenType.NOT ) || tok.hasType( TokenType.OR)) 
             {
-                lastAddedNode = pushToStack( operatorStack ,valueStack ,  new OperatorNode().parse(lexer , lastAddedNode ) , lastAddedNode );
+                lastAddedNode = pushToStack( operatorStack ,valueStack ,  new OperatorNode().parse(lexer ) , lastAddedNode );
             } 
             else if ( tok.hasType( TokenType.PARENS_OPEN ) ) 
             {
                 lexer.read( TokenType.PARENS_OPEN );
-                lastAddedNode = pushToStack( operatorStack ,valueStack ,  new OperatorNode(OperatorType.PARENS) , lastAddedNode  );
-                lastAddedNode = pushToStack( operatorStack ,valueStack ,  new TermNode().parse(lexer , lastAddedNode) , lastAddedNode  );                  
-                lexer.read( TokenType.PARENS_CLOSE );
-            } 
+                lastAddedNode = pushToStack( operatorStack ,valueStack , 
+                		new OperatorNode(OperatorType.PARENS_OPEN) , lastAddedNode  );
+            }
+            else if ( tok.hasType( TokenType.PARENS_CLOSE ) ) 
+            {
+            	lexer.read( TokenType.PARENS_CLOSE );
+            	lastAddedNode = pushToStack( operatorStack ,valueStack ,  
+            			new OperatorNode(OperatorType.PARENS_CLOSE) , lastAddedNode  );            	
+            }
             else {
                 break;
             }
@@ -152,7 +165,7 @@ public class TermNode extends ASTNode
         if ( ! operatorStack.isEmpty() ) {
             throw new ParseException("Term stack not empty: "+operatorStack, startOffset );
         }
-        // System.out.println(" ---------- finish: parse term : "+this+" ---------- ");        
+        // System.out.println(" ---------- finish: parse term : "+this+" ---------- ");
         return this;
     }
 
@@ -205,6 +218,25 @@ public class TermNode extends ASTNode
         }
         
         final OperatorNode x = (OperatorNode) newNode;
+        
+        if ( x.getType() == OperatorType.PARENS_OPEN ) {
+            // System.out.println("OPERATOR: PUSH "+x);          	
+        	operatorStack.push( x );
+        	return lastAddedNode;
+        } 
+        else if ( x.getType() == OperatorType.PARENS_CLOSE ) 
+        {
+        	ASTNode result = lastAddedNode;
+        	while ( ! operatorStack.isEmpty() && 
+        			operatorStack.peek().getType() != OperatorType.PARENS_OPEN) 
+        	{
+        		result = popOperatorFromStack( operatorStack , valueStack , result , false );
+        	}
+        	if ( ! operatorStack.isEmpty() ) {
+        		operatorStack.pop(); // pop opening parens
+        	}
+        	return result;
+        }
 
         /*
     For all the input tokens [S1]:
@@ -228,14 +260,19 @@ public class TermNode extends ASTNode
           Else add token to output buffer [S12].
 
         - While there are still operator tokens in the stack, pop them to output [S13]
-
          */
+        // System.out.println("CURRENT OPERATOR: "+x);  
         if ( ! operatorStack.isEmpty()  ) {
 
             final OperatorNode y = operatorStack.peek();
             if ( ( isLeftAssociative(x) && getPrecedence( x ) <= getPrecedence( y ) ) ||
                    ( isRightAssociative(x) && getPrecedence( x ) < getPrecedence( y ) ) )
             {
+            	if ( isLeftAssociative( x ) ) {
+            		// System.out.println("Left-associative operator "+x+" has <= precedence than "+y);            		
+            	} else {
+            		// System.out.println("Right-associative operator "+x+" has < precedence than "+y);
+            	}
                 ASTNode result = popOperatorFromStack(operatorStack, valueStack,lastAddedNode,false);
                 // System.out.println("OPERATOR: PUSH "+x);  
                 operatorStack.push( x );
@@ -256,16 +293,18 @@ public class TermNode extends ASTNode
             boolean clearStack)
     {
         final OperatorNode op = operatorStack.pop();
-        // System.out.println("OPERATOR: POP "+op);
+        if ( op.getType() == OperatorType.PARENS_OPEN ) {
+            // System.out.println("OPERATOR: Skipping "+op);
+        	return lastAddedNode;
+        }
+        
         ASTNode newNode;
-        if ( isRightAssociative( op ) ) // NOT <something>  or PARENS
+        if ( isRightAssociative( op ) ) // NOT <something>
         {
             final ASTNode rightValue = valueStack.pop();
             // System.out.println("VALUE: POP "+rightValue);
             if ( op.isNOT() ) {
                 newNode = OperatorNode.createNOT( rightValue);
-            } else if ( op.getType() == OperatorType.PARENS ) {
-                newNode = rightValue;
             } else {
                 throw new RuntimeException("Internal error"); 
             }
@@ -285,7 +324,7 @@ public class TermNode extends ASTNode
             }
         } 
         else {
-            throw new RuntimeException("Internal error");
+            throw new RuntimeException("Internal error , unhandled operator "+op);
         }
         
         if ( ! operatorStack.isEmpty() || ! clearStack  ) {
@@ -307,7 +346,7 @@ public class TermNode extends ASTNode
     }
 
     private boolean isRightAssociative(OperatorNode node) {
-        return node.isNOT() || node.getType() == OperatorType.PARENS;
+        return node.isNOT() || node.getType() == OperatorType.PARENS_OPEN;
     }
 
     /**
@@ -320,16 +359,9 @@ public class TermNode extends ASTNode
     }
     
     @Override
-    public String toString()
+    public String toString(boolean prettyPrint)
     {
-        final StringBuilder result =new StringBuilder();
-        for ( ASTNode child : children() ) {
-            result.append( child.toString() );
-        }
-        if ( hasParent() && getParent() instanceof BooleanExpression ) {
-            return result.toString();
-        }
-        return "("+result.toString()+")";
+      	return childToString(0 , prettyPrint );
     }
     
     @Override
@@ -344,9 +376,25 @@ public class TermNode extends ASTNode
 	}     
 
     @Override
-    public ASTNode evaluate(IExpressionContext context)
+	public ASTNode evaluate(IExpressionContext context)
     {
         return child(0).evaluate( context );
     }
 
+	@Override
+	public boolean isEquals(ASTNode other) {
+		if ( other instanceof TermNode ) {
+			final int len = getChildCount();
+			if ( len != other.getChildCount() ) {
+				return false;
+			}
+			for ( int i = 0 ; i < len ; i++ ) {
+				if ( ! child(i).isEquals( other.child(i) ) ) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
 }

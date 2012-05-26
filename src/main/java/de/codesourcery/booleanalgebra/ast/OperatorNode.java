@@ -1,5 +1,7 @@
 package de.codesourcery.booleanalgebra.ast;
 
+import org.apache.commons.lang.ObjectUtils;
+
 import de.codesourcery.booleanalgebra.IExpressionContext;
 import de.codesourcery.booleanalgebra.exceptions.ParseException;
 import de.codesourcery.booleanalgebra.lexer.ILexer;
@@ -31,7 +33,7 @@ public class OperatorNode extends ASTNode
     @Override
     protected int getMaxSupportedChildCount()
     {
-        return -1;
+        return 2;
     }
     
     public OperatorType getType()
@@ -52,7 +54,7 @@ public class OperatorNode extends ASTNode
     }    
 
     @Override
-    public ASTNode parse(ILexer lexer, ASTNode previousNode) throws ParseException
+    public ASTNode parse(ILexer lexer) throws ParseException
     {
         Token tok = lexer.peek();
         switch( tok.getType() ) {
@@ -87,23 +89,25 @@ public class OperatorNode extends ASTNode
     }
 
     @Override
-    public String toString()
+    public String toString(boolean prettyPrint)
     {
         if ( type == null ) {
             return "<operator node without type?>";
         }
         switch( getType() ) {
             case AND:
-                return childToString(0)+" AND "+childToString(1);
+                return childToString(0,prettyPrint)+" AND "+childToString(1,prettyPrint);
             case NOT:
-                if ( hasChild( 0 ) && child(0) instanceof TermNode) { // termnode outputs it's own parens anyway
-                    return "NOT"+childToString(0);
-                }
-                return "NOT("+childToString(0)+")";
+//                if ( hasChild( 0 ) && child(0) instanceof TermNode) { // termnode outputs it's own parens anyway
+//                    return "NOT "+childToString(0,prettyPrint);
+//                }
+                return "NOT ("+childToString(0,prettyPrint)+")";
             case OR:
-                return childToString(0)+" OR "+childToString(1);
-            case PARENS:
-                return "()";
+                return childToString(0,prettyPrint)+" OR "+childToString(1,prettyPrint);
+            case PARENS_OPEN:
+                return "(";
+            case PARENS_CLOSE:
+                return ")";                
             default:
                 throw new RuntimeException("Unhandled type "+getType() );
         }
@@ -124,32 +128,35 @@ public class OperatorNode extends ASTNode
 	}
     
     @Override
-    public ASTNode evaluate(IExpressionContext context)
+	public ASTNode evaluate(IExpressionContext context)
     {
         switch( getType() ) {
             case OR: 
             	// $FALL-THROUGH$
             case AND:
-            	ASTNode leftChild = child(0);
-            	ASTNode rightChild = child(1);
-            	if ( leftChild.hasLiteralValue(context) && rightChild.hasLiteralValue(context) ) 
+            	ASTNode leftChild = child(0).evaluate(context);
+            	ASTNode rightChild = child(1).evaluate(context);
+            	if ( leftChild != null && rightChild != null &&
+            		 leftChild.hasLiteralValue(context) && rightChild.hasLiteralValue(context) ) 
             	{
                     switch( getType() ) {
                     	case OR:
-                    		return toNode( leftChild.getLiteralValue( context ) | rightChild.getLiteralValue( context ) );
+                    		return toNode( leftChild.getLiteralValue( context ) | 
+                    				       rightChild.getLiteralValue( context ) );
                         case AND:
-                    	    return toNode( leftChild.getLiteralValue( context ) & rightChild.getLiteralValue( context ) );                    	
+                    	    return toNode( leftChild.getLiteralValue( context ) & 
+                    	    		       rightChild.getLiteralValue( context ) );                    	
                     	default:
                             throw new RuntimeException("Unhandled type "+getType() );                     		
                     }
             	}
                 break;
             case NOT:
-            	leftChild = child(0).evaluate( context );
-            	if ( leftChild.hasLiteralValue( context ) ) {
-            		return toNode( leftChild.getLiteralValue( context ) );
+            	ASTNode value = child(0).evaluate( context );
+            	if ( value != null && value.isLiteralValue() ) {
+            		return value.getLiteralValue(context) ? new FalseNode() : new TrueNode(); 
             	}
-                break;
+            	break;
             default:
                 throw new RuntimeException("Unhandled type "+getType() );                
         }        
@@ -162,6 +169,28 @@ public class OperatorNode extends ASTNode
 			return new OperatorNode();
 		}
 		return new OperatorNode(this.type);
-	}  
-    
+	}
+
+	@Override
+	public boolean isEquals(ASTNode other) 
+	{
+		if ( other instanceof OperatorNode) 
+		{
+			if ( ! ObjectUtils.equals( this.type , ((OperatorNode) other).type ) ) {
+				return false;
+			}
+			final int len = getChildCount();
+			if ( len != other.getChildCount() ) {
+				return false;
+			}
+			for ( int i = 0 ; i < len ; i++ ) {
+				if ( ! child(i).isEquals( other.child(i) ) ) {
+					return false;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+
 }

@@ -12,9 +12,9 @@ public class FalseNode extends ASTNode
     {
         return 0;
     }
-
+    
     @Override
-    public ASTNode parse(ILexer lexer, ASTNode previousNode) throws ParseException
+    public ASTNode parse(ILexer lexer) throws ParseException
     {
         lexer.read(TokenType.FALSE);
         return this;
@@ -26,16 +26,25 @@ public class FalseNode extends ASTNode
     }
     
     @Override
-    public String toString()
+    public String toString(boolean prettyPrint)
     {
         return "false";
     }
     
     @Override
-    public ASTNode evaluate(IExpressionContext context)
+	public ASTNode evaluate(IExpressionContext context)
     {
         return this;
     }  
+    
+    @Override
+    public boolean isEquivalent(ASTNode other, IExpressionContext context) 
+    {
+    	if ( other.evaluate( context ) instanceof FalseNode) {
+    		return true;
+    	}
+    	return super.isEquivalent(other, context);
+    }    
     
     @Override
     public boolean getLiteralValue(IExpressionContext context) {
@@ -50,5 +59,10 @@ public class FalseNode extends ASTNode
 	@Override
     public boolean hasLiteralValue(IExpressionContext context) {
     	return true;
-    }	
+    }
+
+	@Override
+	public boolean isEquals(ASTNode other) {
+		return other instanceof FalseNode;
+	}	
 }

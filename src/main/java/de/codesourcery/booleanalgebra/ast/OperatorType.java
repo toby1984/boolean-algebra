@@ -4,7 +4,8 @@ public enum OperatorType {
     AND,
     OR,
     NOT,
-    PARENS;
+    PARENS_OPEN,
+    PARENS_CLOSE;
 
     public int getPrecedence() {
         /*
@@ -24,7 +25,7 @@ public enum OperatorType {
                 return 9;
             case OR:
                 return 8;
-            case PARENS:
+            case PARENS_OPEN:
                 return 100;            
         }
         return 0;
