@@ -4,8 +4,8 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
-import de.codesourcery.booleanalgebra.ASTTransformations.MutatingNodeVisitor;
 import de.codesourcery.booleanalgebra.ast.ASTNode;
+import de.codesourcery.booleanalgebra.ast.BooleanExpression;
 import de.codesourcery.booleanalgebra.ast.FalseNode;
 import de.codesourcery.booleanalgebra.ast.INodeVisitor;
 import de.codesourcery.booleanalgebra.ast.Identifier;
@@ -127,6 +127,19 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
 		debugPrintln("SIMPLIFIED: "+result.toString());
 		return result;
+	}
+	
+	public Boolean isTrue(BooleanExpression expr,IExpressionContext context) {
+		
+		ASTNode lhs = expr.getLHS();
+		ASTNode rhs = expr.getRHS();
+		
+		ASTNode value1 = lhs.evaluate( context );
+		ASTNode value2= rhs.evaluate( context );
+		if ( value1 != null && value2 != null ) {
+			return value1.isEquivalent( value2 , context );
+		}
+		return null;
 	}
 
 	private boolean applyLawOfAssociativity(IExpressionContext context,

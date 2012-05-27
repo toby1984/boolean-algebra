@@ -11,6 +11,7 @@ import java.util.Random;
 import org.apache.commons.lang.StringUtils;
 
 import de.codesourcery.booleanalgebra.ast.ASTNode;
+import de.codesourcery.booleanalgebra.ast.BooleanExpression;
 import de.codesourcery.booleanalgebra.ast.FalseNode;
 import de.codesourcery.booleanalgebra.ast.INodeVisitor;
 import de.codesourcery.booleanalgebra.ast.Identifier;
@@ -39,15 +40,19 @@ public class Main
 		// (a and b) and c = a and (b and c) 	
 		// (a or b) or c = a or (b or c)
     	
-//    	final String expr1 = "(b or c) or a";
-//    	ASTNode term = parseTerm( expr1 );
-//    	term.toDOT( new FileOutputStream("/home/tobi/tmp/test.dot" ) );
-//    	simplify( term );
-//    	System.exit(0);
-//    	
-//    	final String expr2 = " c or ( a and b) ";
-//    	assertTermsAreEquivalent( parseTerm( expr1 ) , parseTerm( expr2 ) );
-//    	System.exit(0);
+    	final String expr1 = "a or b = true or not(a)";
+    	BooleanExpression boolExpr = new BooleanExpressionParser().parseExpression( expr1 );
+
+    	final IValidator v = new IValidator() {
+			
+			@Override
+			public boolean validate(ASTNode term1, ASTNode term2, IExpressionContext context) 
+			{
+	    		return transformer.isTrue( (BooleanExpression) term1 , context );
+			}
+		};
+		assertTermsAreEquivalent( boolExpr , null , v );
+    	System.exit(0);
     	
     	for ( int i = 0 ; i < 10 ; i++ ) 
     	{
@@ -68,8 +73,26 @@ public class Main
 		System.out.println( term+" -> "+simplified+"\n------------------------------\n");
 		assertTermsAreEquivalent( term , simplified );
 	}
-    
+	
+	protected interface IValidator {
+		public boolean validate(ASTNode val1,ASTNode val2, IExpressionContext ctx);
+	}
+	
     public void assertTermsAreEquivalent(ASTNode input , ASTNode output) 
+    {
+    	final IValidator v = new IValidator() {
+			
+			@Override
+			public boolean validate(ASTNode term1, ASTNode term2, IExpressionContext context) {
+	    		ASTNode val1 = term1.evaluate( context );
+	    		ASTNode val2 = term2.evaluate( context );
+	    		return val1.isEquivalent( val2 , context); 
+			}
+		};
+		assertTermsAreEquivalent( input , output , v );
+    }
+    
+    public void assertTermsAreEquivalent(ASTNode input , ASTNode output,IValidator validator) 
     {
     	ExpressionContext context = new ExpressionContext();
     	
@@ -87,24 +110,17 @@ public class Main
     			context.set( id  , bitValue );
     			mask = mask << 1;
     		}
-    		ASTNode val1 = input.evaluate( context );
-    		ASTNode val2 = output.evaluate( context );
-    		if ( ! val1.isEquivalent( val2 , context) ) 
+    		System.out.println( context );
+    		
+    		if ( ! validator.validate( input , output , context ) )
     		{
     			System.out.println("\n------------------------");
     			System.out.println( "\nVariables:\n\n"+context.toString() );
-    			
-    			
-    			System.out.println("Reducing: "+input);
-    			ASTNode reduced1 = transformer.reduce( input , context );
-    			System.out.println("Reduced input term => "+reduced1);
-    			
+    			System.out.println("INPUT: "+input);
     			System.out.println("\n------------------------");
-    			System.out.println("Reducing: "+output);
-    			ASTNode reduced2 = transformer.reduce( output , context );
-    			System.out.println("Reduced simplified term => "+reduced2);    			
+    			System.out.println("OUTPUT: "+output);
     			
-    			throw new RuntimeException("Not equivalent: "+val1+" <-> "+val2);
+    			throw new RuntimeException("validator failed for: "+input+" <-> "+output);
     		}
     	}
     }

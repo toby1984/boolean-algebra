@@ -9,6 +9,11 @@ public class BooleanExpression extends ASTNode
 {
 	public BooleanExpression() {
 	}
+	
+	public BooleanExpression(ASTNode lhs,ASTNode rhs) {
+		addChild( lhs );
+		addChild( rhs );
+	}
 
 	@Override
 	protected int getMaxSupportedChildCount()
@@ -25,12 +30,12 @@ public class BooleanExpression extends ASTNode
 		return this;
 	}
 
-	public TermNode getLHS() {
-		return (TermNode) child(0);
+	public ASTNode getLHS() {
+		return child(0);
 	}
 
-	public TermNode getRHS() {
-		return (TermNode) child(1);
+	public ASTNode getRHS() {
+		return child(1);
 	}    
 
 	@Override
@@ -52,7 +57,7 @@ public class BooleanExpression extends ASTNode
 
 	@Override
 	protected BooleanExpression copyThisNode() {
-		return new BooleanExpression();
+		return new BooleanExpression(child(0),child(1));
 	}
 
 	@Override
