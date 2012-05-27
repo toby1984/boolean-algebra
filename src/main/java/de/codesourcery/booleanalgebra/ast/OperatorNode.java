@@ -41,15 +41,15 @@ public class OperatorNode extends ASTNode
         return type;
     }
     
-    public static OperatorNode createNOT(ASTNode value) {
+    public static OperatorNode not(ASTNode value) {
         return new OperatorNode(OperatorType.NOT , value );
     }
     
-    public static OperatorNode createAND(ASTNode leftValue,ASTNode rightValue) {
+    public static OperatorNode and(ASTNode leftValue,ASTNode rightValue) {
         return new OperatorNode(OperatorType.AND , leftValue , rightValue );
     }
     
-    public static OperatorNode createOR(ASTNode leftValue,ASTNode rightValue) {
+    public static OperatorNode or(ASTNode leftValue,ASTNode rightValue) {
         return new OperatorNode(OperatorType.OR , leftValue , rightValue );
     }    
 
@@ -101,7 +101,7 @@ public class OperatorNode extends ASTNode
 //                if ( hasChild( 0 ) && child(0) instanceof TermNode) { // termnode outputs it's own parens anyway
 //                    return "NOT "+childToString(0,prettyPrint);
 //                }
-                return "NOT ("+childToString(0,prettyPrint)+")";
+                return "NOT "+childToString(0,prettyPrint);
             case OR:
                 return childToString(0,prettyPrint)+" OR "+childToString(1,prettyPrint);
             case PARENS_OPEN:

@@ -14,7 +14,7 @@ public class ParserTest extends TestCase
         
         String expr = "  a   or   not  ((  b  and  c ) or d)  =  e   ";
         
-        BooleanExpression expression = new BooleanExpressionParser().parseExpression( expr , new ExpressionContext() );
+        BooleanExpression expression = new BooleanExpressionParser().parseExpression( expr );
         
         System.out.println("PARSED: "+expression);
         

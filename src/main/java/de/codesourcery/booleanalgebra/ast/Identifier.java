@@ -5,7 +5,7 @@ import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
 
 
-public final class Identifier
+public final class Identifier implements Comparable<Identifier>
 {
     private static final Pattern PATTERN = Pattern.compile("^[\\-_0-9a-zA-Z]$");
     
@@ -54,5 +54,10 @@ public final class Identifier
         }
         return PATTERN.matcher( s ).matches();
     }
+
+	@Override
+	public int compareTo(Identifier o) {
+		return getValue().compareTo( o.getValue() );
+	}
 
 }

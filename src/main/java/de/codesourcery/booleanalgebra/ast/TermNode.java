@@ -199,7 +199,7 @@ public class TermNode extends ASTNode
         ASTNode previousNode = lastAddedNode;
         while( ! operatorStack.isEmpty() ) 
         {
-            previousNode = popOperatorFromStack(operatorStack, valueStack, previousNode,true);
+            previousNode = popOperatorFromStack(operatorStack, valueStack, previousNode,true,false);
         }
         
         if ( ! valueStack.isEmpty() ) {
@@ -226,11 +226,16 @@ public class TermNode extends ASTNode
         } 
         else if ( x.getType() == OperatorType.PARENS_CLOSE ) 
         {
-        	ASTNode result = lastAddedNode;
+        	ASTNode result = new TermNode();
+        	if ( lastAddedNode == null ) {
+        		addChild( result );
+        	} else {
+        		lastAddedNode.addChild( result );
+        	}
         	while ( ! operatorStack.isEmpty() && 
         			operatorStack.peek().getType() != OperatorType.PARENS_OPEN) 
         	{
-        		result = popOperatorFromStack( operatorStack , valueStack , result , false );
+        		result = popOperatorFromStack( operatorStack , valueStack , result , false ,true );
         	}
         	if ( ! operatorStack.isEmpty() ) {
         		operatorStack.pop(); // pop opening parens
@@ -273,7 +278,7 @@ public class TermNode extends ASTNode
             	} else {
             		// System.out.println("Right-associative operator "+x+" has < precedence than "+y);
             	}
-                ASTNode result = popOperatorFromStack(operatorStack, valueStack,lastAddedNode,false);
+                ASTNode result = popOperatorFromStack(operatorStack, valueStack,lastAddedNode,false,false);
                 // System.out.println("OPERATOR: PUSH "+x);  
                 operatorStack.push( x );
                 return result;
@@ -290,7 +295,8 @@ public class TermNode extends ASTNode
     private ASTNode popOperatorFromStack(Stack<OperatorNode> operatorStack, 
             Stack<ASTNode> valueStack, 
             ASTNode lastAddedNode,
-            boolean clearStack)
+            boolean clearStack,
+            boolean popBecauseOfParens)
     {
         final OperatorNode op = operatorStack.pop();
         if ( op.getType() == OperatorType.PARENS_OPEN ) {
@@ -304,7 +310,7 @@ public class TermNode extends ASTNode
             final ASTNode rightValue = valueStack.pop();
             // System.out.println("VALUE: POP "+rightValue);
             if ( op.isNOT() ) {
-                newNode = OperatorNode.createNOT( rightValue);
+                newNode = OperatorNode.not( rightValue);
             } else {
                 throw new RuntimeException("Internal error"); 
             }
@@ -316,15 +322,19 @@ public class TermNode extends ASTNode
             final ASTNode leftValue = valueStack.pop();
             // System.out.println("VALUE: POP "+leftValue);
             if ( op.isAND() ) {
-                newNode = OperatorNode.createAND( leftValue, rightValue);
+                newNode = OperatorNode.and( leftValue, rightValue);
             } else if ( op.isOR() ) {
-                newNode = OperatorNode.createOR( leftValue, rightValue);
+                newNode = OperatorNode.or( leftValue, rightValue);
             } else {
                 throw new RuntimeException("Internal error");                        
             }
         } 
         else {
             throw new RuntimeException("Internal error , unhandled operator "+op);
+        }
+        
+        if ( popBecauseOfParens ) {
+        	newNode = new TermNode( newNode );
         }
         
         if ( ! operatorStack.isEmpty() || ! clearStack  ) {
@@ -361,7 +371,7 @@ public class TermNode extends ASTNode
     @Override
     public String toString(boolean prettyPrint)
     {
-      	return childToString(0 , prettyPrint );
+      	return "("+childToString(0 , prettyPrint )+")";
     }
     
     @Override

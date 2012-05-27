@@ -22,8 +22,9 @@ import de.codesourcery.booleanalgebra.ast.TrueNode;
 
 public class Main
 {
-
 	private final BooleanExpressionParser parser = new BooleanExpressionParser();
+	
+	private final ASTTransformations transformer = new ASTTransformations();
 	
 	private final Random r = new Random(System.currentTimeMillis());
 	
@@ -34,65 +35,45 @@ public class Main
     
     public void run() throws FileNotFoundException 
     {
-    	final String s = "NOT ((NOT (NOT (c)) AND c))";
-    	final ASTNode term = parseTerm( s , new ExpressionContext() );
+		// Assoziativgesetz
+		// (a and b) and c = a and (b and c) 	
+		// (a or b) or c = a or (b or c)
     	
-    	term.toDOT( new FileOutputStream("/home/tobi/tmp/test.dot",false) );
-    	System.exit(0);
-    	System.out.println("PARSED: "+term);
+//    	final String expr1 = "(b or c) or a";
+//    	ASTNode term = parseTerm( expr1 );
+//    	term.toDOT( new FileOutputStream("/home/tobi/tmp/test.dot" ) );
+//    	simplify( term );
+//    	System.exit(0);
+//    	
+//    	final String expr2 = " c or ( a and b) ";
+//    	assertTermsAreEquivalent( parseTerm( expr1 ) , parseTerm( expr2 ) );
+//    	System.exit(0);
     	
-		final int maxDepth = term.getTreeDepth();
-		
-    	final INodeVisitor visitor = new INodeVisitor() {
-			
-    		private int lastDepth=-1;
-    		private String ident="";
-    		
-			@Override
-			public boolean visit(ASTNode node, int currentDepth) 
-			{
-				if ( currentDepth != lastDepth ) {
-					lastDepth = currentDepth;
-					int delta = (maxDepth+4) - currentDepth;
-					System.out.println();
-					ident = StringUtils.repeat("     " , delta );
-				}
-				
-				if ( node.hasChildren() ) {
-					if ( node instanceof OperatorNode) 
-					{
-						System.out.print( ident+((OperatorNode) node).getType() );
-					} else {
-						System.out.print( ident+node.getClass().getSimpleName() );
-					}
-				} else {
-					System.out.print( ident+node.getClass().getSimpleName()+":"+node);
-				}
-				return true;
-			}
-		};		
-		
-		term.visitPreOrder( visitor );
-		
-		ASTNode simplified = simplify( term.toString(true) );
-		assertTermsAreEquivalent( term , simplified );
-		
-		System.exit(0);
-    	
-    	for ( int i = 0 ; i < 10000 ; i++ ) {
-    		ASTNode t = createTerm( 5 , 4 );
-    		System.out.println("\n=========================");
-    		ASTNode tree = parseTerm( t.toString(true) , new ExpressionContext() );
-    		ASTNode simplified2 = ASTTransformations.simplify( tree , new ExpressionContext() );
-    		assertTermsAreEquivalent( t , simplified2 );
+    	for ( int i = 0 ; i < 10 ; i++ ) 
+    	{
+    		if (  ( i % 1000 ) == 0 ) {
+    			System.out.println("Tested "+i+" terms...");
+    		}
+    		ASTNode t = createTerm( 3 , 4 );
+        	t.toDOT( new FileOutputStream("/home/tobi/tmp/generated_term.dot",false) );
+        	final String stringForm = t.toString(false);
+        	ASTNode parsed = parseTerm( stringForm );
+        	t.toDOT( new FileOutputStream("/home/tobi/tmp/parsed_term.dot",false) );
+    		testSimplify( parsed );
     	}
     }
+
+	private void testSimplify(final ASTNode term) {
+		ASTNode simplified = simplify( term ); 
+		System.out.println( term+" -> "+simplified+"\n------------------------------\n");
+		assertTermsAreEquivalent( term , simplified );
+	}
     
     public void assertTermsAreEquivalent(ASTNode input , ASTNode output) 
     {
     	ExpressionContext context = new ExpressionContext();
     	
-    	final List<Identifier> vars = new ArrayList<Identifier>( ASTTransformations.gatherIdentifiers( input ) );
+    	final List<Identifier> vars = new ArrayList<Identifier>( transformer.gatherIdentifiers( input ) );
     	
     	// size = 1 => 1 << 1 => 2
     	// size = 2 => 1 << 2 => 4
@@ -108,11 +89,24 @@ public class Main
     		}
     		ASTNode val1 = input.evaluate( context );
     		ASTNode val2 = output.evaluate( context );
-    		if ( ! val1.isEquivalent( val2 , context) ) {
+    		if ( ! val1.isEquivalent( val2 , context) ) 
+    		{
+    			System.out.println("\n------------------------");
+    			System.out.println( "\nVariables:\n\n"+context.toString() );
+    			
+    			
+    			System.out.println("Reducing: "+input);
+    			ASTNode reduced1 = transformer.reduce( input , context );
+    			System.out.println("Reduced input term => "+reduced1);
+    			
+    			System.out.println("\n------------------------");
+    			System.out.println("Reducing: "+output);
+    			ASTNode reduced2 = transformer.reduce( output , context );
+    			System.out.println("Reduced simplified term => "+reduced2);    			
+    			
     			throw new RuntimeException("Not equivalent: "+val1+" <-> "+val2);
     		}
     	}
-    	
     }
     
     public ASTNode createTerm(int variablesCount,int nodeCount) 
@@ -162,21 +156,23 @@ public class Main
 		}
 	}
 	
+	
     public ASTNode simplify(final String expr) {
+        ASTNode term = parseTerm( expr );
+        return simplify( term );
+    }
+	
+    public ASTNode simplify(ASTNode term) {
         
         final ExpressionContext ctx = new ExpressionContext();
-        System.out.println("Parsing "+expr);
-        ASTNode term = parseTerm( expr , ctx );
-        
-		ASTNode simplified = ASTTransformations.simplify( term , ctx );
-        System.out.println("SIMPLIFIED: "+term.toString(true)+" -> "+simplified.toString(true) );
+		ASTNode simplified = transformer.simplify( term , ctx );
         return simplified;
     }
     
     public void reduce(final String expr) {
         
         final ExpressionContext ctx = new ExpressionContext();
-        ASTNode term = parseTerm( expr , ctx );
+        ASTNode term = parseTerm( expr );
         
 		ASTNode reduced = term.evaluate( ctx );
         System.out.println("REDUCED: "+term+" -> "+reduced.toString(true) );
@@ -186,7 +182,7 @@ public class Main
 	{
 		ExpressionContext ctx;
 		ctx = new ExpressionContext();
-        final ASTNode term = parseTerm( expr , ctx );
+        final ASTNode term = parseTerm( expr );
         
         Identifier a = Identifier.id("a");
         Identifier b = Identifier.id("b");
@@ -209,9 +205,9 @@ public class Main
         }
 	}
     
-    private ASTNode parseTerm(String s,IExpressionContext context) 
+    private ASTNode parseTerm(String s) 
     {
-    	return parser.parseTerm( s , context );
+    	return parser.parseTerm( s );
     }    
     
     private final String padRight(String s , int len) 

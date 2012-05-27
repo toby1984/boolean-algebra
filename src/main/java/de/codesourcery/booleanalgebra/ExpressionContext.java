@@ -1,7 +1,11 @@
 package de.codesourcery.booleanalgebra;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -39,8 +43,10 @@ public class ExpressionContext implements IExpressionContext {
     public String toString() 
     {
     	StringBuilder buffer= new StringBuilder ();
-    	for (Map.Entry<Identifier,ASTNode> entry : variables.entrySet()) {
-			buffer.append( entry.getKey()+"="+entry.getValue()).append("\n");
+    	final List<Identifier> keys = new ArrayList<Identifier>( variables.keySet() );
+    	Collections.sort( keys );
+    	for ( Identifier key : keys ) {
+			buffer.append( key+"="+variables.get( key ) ).append("\n");
 		}
     	return buffer.toString();
     } 

@@ -4,15 +4,11 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Stack;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import de.codesourcery.booleanalgebra.IExpressionContext;
 import de.codesourcery.booleanalgebra.exceptions.ParseException;
@@ -68,7 +64,7 @@ public abstract class ASTNode
 			label = toString();
 		}
 
-		writer.println( ""+nodeId+" [label=\""+label+"\"];" );
+		writer.println( ""+nodeId+" [label=\" ("+nodeId+") "+getClass().getSimpleName()+" => "+label+"\"];" );
 		for ( ASTNode child : children ) 
 		{
 			child.toDOT( writer );
@@ -150,6 +146,39 @@ public abstract class ASTNode
 		return false;
 	}
 
+	public boolean sortChildrenAscending(Comparator<ASTNode> comp) 
+	{
+		boolean changed = false;
+		for ( ASTNode child : children ) {
+			changed |= child.sortChildrenAscending( comp );
+		}
+		changed |= sortAscending( this.children , comp );
+		return changed;
+	}
+	
+	protected static final boolean sortAscending(List<ASTNode> l , Comparator<ASTNode> comp) {
+		
+		boolean changed = false;
+		final int len = l.size()-1; 
+		for ( int i = 0 ; i < len ; i++ ) {
+			if ( comp.compare( l.get(i) , l.get(i+1) ) > 0 ) {
+				ASTNode temp = l.get(i);
+				l.set( i , l.get(i+1) );
+				l.set( i+1 , temp );
+				changed = true;
+			}
+		}
+		return changed;
+	}
+	
+	public ASTNode leftChild() {
+		return child(0);
+	}
+	
+	public ASTNode rightChild() {
+		return child(1);
+	}
+	
 	public boolean isSimpleTerm() {
 		if ( getChildCount() == 0 ) {
 			return true;
@@ -416,14 +445,12 @@ public abstract class ASTNode
 		return toString(false);
 	}
 
-	protected final String childToString(int index,boolean prettyPrint) {
+	protected final String childToString(int index,boolean prettyPrint) 
+	{
 		if ( index < 0 || index >= getChildCount() ) {
 			return "<no child>";
 		}
-		if ( child(index).isSimpleTerm()) {
-			return child(index).toString(prettyPrint);
-		}
-		return "("+child(index).toString(prettyPrint)+")";
+		return child(index).toString(prettyPrint);
 	}    
 
 	public abstract String toString(boolean prettyPrint);
