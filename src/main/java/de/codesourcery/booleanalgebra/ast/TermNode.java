@@ -166,7 +166,25 @@ public class TermNode extends ASTNode
             throw new ParseException("Term stack not empty: "+operatorStack, startOffset );
         }
         // System.out.println(" ---------- finish: parse term : "+this+" ---------- ");
+        
+        assertNoEmptyTerms( startOffset );
+        
         return this;
+    }
+    
+    private void assertNoEmptyTerms(final int offset) {
+        final INodeVisitor visitor = new INodeVisitor() {
+            
+            @Override
+            public boolean visit(ASTNode node, int currentDepth)
+            {
+                if ( node instanceof TermNode && ! node.hasChildren() ) {
+                    throw new ParseException("Term must not be empty",offset);                    
+                }
+                return true;
+            }
+        };
+        visitInOrder( visitor );
     }
 
     private void clearStacks(Stack<OperatorNode> operatorStack, Stack<ASTNode> valueStack, ASTNode lastAddedNode)
@@ -174,14 +192,14 @@ public class TermNode extends ASTNode
         // System.out.println(" ---------- clearing stacks ----------");
         
         // System.out.println("**** OPERATORS ***\n");
-        for ( int i = operatorStack.size()-1 ; i >= 0 ; i-- ) {
+//        for ( int i = operatorStack.size()-1 ; i >= 0 ; i-- ) {
             // System.out.println( i+". "+operatorStack.get(i) );
-        }
+//        }
         
         // System.out.println("\n*** VALUES ***\n");
-        for ( int i = valueStack.size()-1 ; i >= 0 ; i-- ) {
+//        for ( int i = valueStack.size()-1 ; i >= 0 ; i-- ) {
             // System.out.println( i+". "+valueStack.get(i) );
-        }     
+//        }     
         
         // System.out.println(" ---------- start: clearing stacks ----------");        
         
@@ -209,8 +227,8 @@ public class TermNode extends ASTNode
         // System.out.println(" ---------- finish: clearing stacks ----------");          
     }
 
-    private ASTNode pushToStack(Stack<OperatorNode> operatorStack,Stack<ASTNode> valueStack,ASTNode newNode,ASTNode lastAddedNode) {
-
+    private ASTNode pushToStack(Stack<OperatorNode> operatorStack,Stack<ASTNode> valueStack,ASTNode newNode,ASTNode lastAddedNode) 
+    {
         if ( ! ( newNode instanceof OperatorNode ) ) {
             valueStack.push( newNode );
             // System.out.println("VALUE: PUSH "+newNode);
@@ -307,6 +325,9 @@ public class TermNode extends ASTNode
         ASTNode newNode;
         if ( isRightAssociative( op ) ) // NOT <something>
         {
+            if ( valueStack.isEmpty() ) {
+                throw new ParseException("Missing operand",-1);
+            }
             final ASTNode rightValue = valueStack.pop();
             // System.out.println("VALUE: POP "+rightValue);
             if ( op.isNOT() ) {
@@ -317,8 +338,14 @@ public class TermNode extends ASTNode
         } 
         else if ( isLeftAssociative( op ) ) // <something> AND <something>, <something> OR <something>
         {
+            if ( valueStack.isEmpty() ) {
+                throw new ParseException("Missing operand",-1);
+            }            
             final ASTNode rightValue = valueStack.pop();
             // System.out.println("VALUE: POP "+rightValue);
+            if ( valueStack.isEmpty() ) {
+                throw new ParseException("Missing operand",-1);
+            }            
             final ASTNode leftValue = valueStack.pop();
             // System.out.println("VALUE: POP "+leftValue);
             if ( op.isAND() ) {

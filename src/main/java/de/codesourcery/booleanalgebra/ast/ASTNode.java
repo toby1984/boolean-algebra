@@ -79,49 +79,52 @@ public abstract class ASTNode
 		return copy;
 	}
 
-	public Iterator<ASTNode> createInOrderIterator() 
-	{
-		final Stack<ASTNode> nodesToVisit = new Stack<ASTNode>();
+    public Iterator<ASTNode> createPreOrderIterator() 
+    {
+        // 1. Visit the root.
+        // 2. Traverse the left subtree.
+        // 3. Traverse the right subtree.        
+        final Stack<ASTNode> nodesToVisit = new Stack<ASTNode>();
 
-		return new Iterator<ASTNode>() {
+        return new Iterator<ASTNode>() {
 
-			private boolean isNew = true;
+            private boolean isNew = true;
 
-			private void addToStack(List<ASTNode> nodes) 
-			{
-				for ( ASTNode n : nodes ) {
-					nodesToVisit.add( n );
-					nodesToVisit.addAll( reverse( n.children ) );
-				}
-				isNew = false;
-			}
+            private void addToStack(List<ASTNode> nodes) 
+            {
+                for ( ASTNode n : nodes ) {
+                    nodesToVisit.addAll( reverse( n.children ) );
+                    nodesToVisit.add( n );                     
+                }
+                isNew = false;
+            }
 
-			@Override
-			public boolean hasNext() {
-				if ( isNew ) {
-					addToStack( Collections.singletonList( ASTNode.this ) );
-				}
-				return ! nodesToVisit.isEmpty();
-			}
+            @Override
+            public boolean hasNext() {
+                if ( isNew ) {
+                    nodesToVisit.push( ASTNode.this );
+                }
+                return ! nodesToVisit.isEmpty();
+            }
 
-			@Override
-			public ASTNode next() 
-			{
-				if ( ! hasNext() ) {
-					throw new NoSuchElementException();
-				}
-				ASTNode node = nodesToVisit.pop();
-				addToStack( node.children );
-				return node;
-			}
+            @Override
+            public ASTNode next() 
+            {
+                if ( ! hasNext() ) {
+                    throw new NoSuchElementException();
+                }
+                ASTNode node = nodesToVisit.pop();
+                addToStack( reverse( node.children ) );
+                return node;
+            }
 
-			@Override
-			public void remove() {
-				throw new UnsupportedOperationException();
-			}
-		};
-	}
-
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+        };
+    }	
+    
 	public boolean isEquivalent(ASTNode other, IExpressionContext context) 
 	{
 		if ( this == other ) {
@@ -257,7 +260,7 @@ public abstract class ASTNode
 				if ( ! visitor.visit( this, currentDepth ) ) {
 					return false;
 				}			
-				return children.get(1).visitInOrder( visitor );
+				return children.get(1).visitInOrder( visitor , currentDepth + 1);
 			default:
 				throw new RuntimeException("Internal error, node with more than 2 children ?");
 		}
@@ -387,7 +390,7 @@ public abstract class ASTNode
 				return true;
 			}
 		};
-		visitInOrder( v );
+		visitPreOrder( v );
 	}
 
 

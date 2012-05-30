@@ -2,8 +2,6 @@ package de.codesourcery.booleanalgebra;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -13,7 +11,6 @@ import org.apache.commons.lang.StringUtils;
 import de.codesourcery.booleanalgebra.ast.ASTNode;
 import de.codesourcery.booleanalgebra.ast.BooleanExpression;
 import de.codesourcery.booleanalgebra.ast.FalseNode;
-import de.codesourcery.booleanalgebra.ast.INodeVisitor;
 import de.codesourcery.booleanalgebra.ast.Identifier;
 import de.codesourcery.booleanalgebra.ast.IdentifierNode;
 import de.codesourcery.booleanalgebra.ast.OperatorNode;
@@ -135,8 +132,9 @@ public class Main
     	return createNode(variables , 0 , nodeCount);
     }
     
-	private ASTNode createNode(List<Identifier> variables,int currentNodeCount,int maxNodeCount) 
+	private ASTNode createNode(List<Identifier> variables,int nodeCount,int maxNodeCount)
 	{
+	    int currentNodeCount = nodeCount;
 		if ( currentNodeCount >= maxNodeCount ) {
 				int v = r.nextInt( variables.size() );
 				return new IdentifierNode( variables.get(v) );			

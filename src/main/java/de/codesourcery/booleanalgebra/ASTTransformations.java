@@ -16,7 +16,7 @@ import de.codesourcery.booleanalgebra.ast.TrueNode;
 
 public class ASTTransformations 
 {
-	private boolean debug = true;
+	private boolean debug = false;
 	
 	protected interface IIterationContext 
 	{
