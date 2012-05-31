@@ -24,12 +24,27 @@ public class BooleanExpression extends ASTNode
 	@Override
 	public ASTNode parse(ILexer lexer) throws ParseException
 	{
-		addChild( new TermNode().parse( lexer ) );
+		addChild( parseTerm( lexer ) );
 		lexer.read(TokenType.EQUALS);
-		addChild( new TermNode().parse( lexer ) );        
+		addChild( parseTerm( lexer ) );        
 		return this;
 	}
+	
+    protected static ASTNode unwrap(ASTNode n) {
+        
+        ASTNode current = n;
+        while ( current instanceof TermNode && current.hasChildren() && current.child(0) instanceof TermNode) {
+            current = current.child(0);
+        }
+        return current;
+    }	
 
+	private ASTNode parseTerm(ILexer lexer ) throws ParseException 
+	{
+	    final ASTNode result = new TermNode().parse( lexer );
+        return unwrap( result );
+	}
+	
 	public ASTNode getLHS() {
 		return child(0);
 	}

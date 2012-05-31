@@ -99,4 +99,9 @@ public class ExpressionContext implements IExpressionContext {
 		}
 		variables.remove( identifier );
 	}
+
+    public void clear()
+    {
+        variables.clear();
+    }
 }

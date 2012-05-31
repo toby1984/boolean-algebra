@@ -18,4 +18,6 @@ public interface IExpressionContext
 	public void retainOnly(Set<Identifier> ids);
 	
 	public void remove(Identifier identifier);
+	
+    public void clear();
 }

@@ -98,10 +98,10 @@ public class OperatorNode extends ASTNode
             case AND:
                 return childToString(0,prettyPrint)+" AND "+childToString(1,prettyPrint);
             case NOT:
-//                if ( hasChild( 0 ) && child(0) instanceof TermNode) { // termnode outputs it's own parens anyway
-//                    return "NOT "+childToString(0,prettyPrint);
-//                }
-                return "NOT "+childToString(0,prettyPrint);
+                if ( hasChild( 0 ) && child(0) instanceof TermNode) { // termnode outputs it's own parens anyway
+                    return "NOT "+childToString(0,prettyPrint);
+                }
+                return "NOT( "+childToString(0,prettyPrint)+" )";
             case OR:
                 return childToString(0,prettyPrint)+" OR "+childToString(1,prettyPrint);
             case PARENS_OPEN:

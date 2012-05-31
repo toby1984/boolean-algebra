@@ -1,77 +1,185 @@
 package de.codesourcery.booleanalgebra;
 
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.io.BufferedReader;
+import java.io.Console;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
+import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 
 import de.codesourcery.booleanalgebra.ast.ASTNode;
-import de.codesourcery.booleanalgebra.ast.BooleanExpression;
 import de.codesourcery.booleanalgebra.ast.FalseNode;
 import de.codesourcery.booleanalgebra.ast.Identifier;
-import de.codesourcery.booleanalgebra.ast.IdentifierNode;
-import de.codesourcery.booleanalgebra.ast.OperatorNode;
-import de.codesourcery.booleanalgebra.ast.OperatorType;
 import de.codesourcery.booleanalgebra.ast.TermNode;
 import de.codesourcery.booleanalgebra.ast.TrueNode;
 
 public class Main
 {
 	private final BooleanExpressionParser parser = new BooleanExpressionParser();
-	
 	private final ASTTransformations transformer = new ASTTransformations();
 	
-	private final Random r = new Random(System.currentTimeMillis());
+	private ASTNode term;
+    private String expression;
+    
+    private final ExpressionContext context = new ExpressionContext();
 	
-    public static void main(String[] args) throws FileNotFoundException
+    public static void main(String[] args) throws IOException
     {
     	new Main().run();
     }
     
-    public void run() throws FileNotFoundException 
+    public void setTerm(String expr) 
     {
-		// Assoziativgesetz
-		// (a and b) and c = a and (b and c) 	
-		// (a or b) or c = a or (b or c)
-    	
-    	final String expr1 = "a or b = true or not(a)";
-    	BooleanExpression boolExpr = new BooleanExpressionParser().parseExpression( expr1 );
+        term = parser.parse( expr );
+        this.expression = expr;
+        System.out.println("Expression: "+expression+" (parsed: "+term+")" );
+    }
+    
+    private String readLine() throws IOException {
+        Console console = System.console();
+        if ( console == null ) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader( System.in ) );
+            return reader.readLine();
+        }
+        return console.readLine();
+    }
+    
+    public void run() throws IOException 
+    {
+        transformer.setDebug( true );
+        
+        String input="";
 
-    	final IValidator v = new IValidator() {
-			
-			@Override
-			public boolean validate(ASTNode term1, ASTNode term2, IExpressionContext context) 
-			{
-	    		return transformer.isTrue( (BooleanExpression) term1 , context );
-			}
-		};
-		assertTermsAreEquivalent( boolExpr , null , v );
-    	System.exit(0);
-    	
-    	for ( int i = 0 ; i < 10 ; i++ ) 
-    	{
-    		if (  ( i % 1000 ) == 0 ) {
-    			System.out.println("Tested "+i+" terms...");
-    		}
-    		ASTNode t = createTerm( 3 , 4 );
-        	t.toDOT( new FileOutputStream("/home/tobi/tmp/generated_term.dot",false) );
-        	final String stringForm = t.toString(false);
-        	ASTNode parsed = parseTerm( stringForm );
-        	t.toDOT( new FileOutputStream("/home/tobi/tmp/parsed_term.dot",false) );
-    		testSimplify( parsed );
-    	}
+        System.console();
+        while( input != null && ! "quit".equalsIgnoreCase( input ) ) 
+        {
+            System.out.print("INPUT > ");
+            input = readLine();
+            if ( input != null ) 
+            {
+                try {
+                    executeCommand( input );
+                } catch(Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        System.out.println("Application terminated.");
     }
 
-	private void testSimplify(final ASTNode term) {
-		ASTNode simplified = simplify( term ); 
-		System.out.println( term+" -> "+simplified+"\n------------------------------\n");
-		assertTermsAreEquivalent( term , simplified );
-	}
+	private void executeCommand(String input)
+    {
+	    final String[] parts = input.trim().split("[ \t]");
+	    final String[] partsWithoutCommand;
+	    if ( parts.length > 1 ) {
+	        partsWithoutCommand = (String[]) ArrayUtils.subarray( parts , 1 , parts.length );
+	    } else {
+	        partsWithoutCommand = new String[0];
+	    }
+	    
+	    final String cmd = parts[0].trim().toLowerCase();
+	    if ( cmd.startsWith( "expr" ) ) {
+	        setTerm( StringUtils.join(partsWithoutCommand , " " ) );
+	        return;
+	    } 
+        else if ( cmd.equals("set" ) ) {
+            setVariable( partsWithoutCommand );
+        }
+        else if ( cmd.equals("vars" ) ) {
+            showVars();
+        }   	    
+        else if ( cmd.equals("restart" ) ) {
+            restart();
+        }   	
+        else if ( cmd.equals("eval" ) ) {
+            eval();
+        }  	    
+        else if ( cmd.equals("unset" ) ) {
+            unsetVariable( partsWithoutCommand );
+        }   	    
+        else if ( cmd.equals("simplify" ) ) {
+            simplify();
+        }
+	    else if ( cmd.equals("quit" ) ) {
+	        // handled by calling method
+	    } else {
+	        System.err.println("Unknown command '"+cmd+"'");
+	    }
+    }
 	
-	protected interface IValidator {
+    private void eval()
+    {
+        if ( expression != null ) 
+        {
+            ASTNode result = transformer.eval( term , context );
+            if ( result == null ) {
+                System.out.println("Failed to evaluate expression "+term);
+            } else {
+                System.out.println("EVAL: "+result);
+            }
+        } else {
+            System.err.println("No expression entered, cannot restart");
+        }        
+    }	
+	
+    private void showVars()
+    {
+        System.out.println( context.toString() );
+    }
+
+    private void restart()
+    {
+        if ( expression != null ) 
+        {
+            setTerm( expression );
+            context.clear();
+        } else {
+            System.err.println("No expression entered, cannot restart");
+        }
+    }
+
+    private void unsetVariable(String[] parts)
+    {
+        if ( parts.length != 1 ) {
+            System.out.println("Syntax: UNSET <variable>");
+            return;
+        }
+        
+        final String identifier = parts[0];
+        context.remove( new Identifier( identifier ) );
+        System.out.println("UNSET "+identifier);
+    }	
+	
+    private void setVariable(String[] parts)
+    {
+        if ( parts.length < 2 ) {
+            System.out.println("Syntax: SET <variable> <value or expression>");
+            return;
+        }
+        final String identifier = parts[0];
+        final String value = StringUtils.join( ArrayUtils.subarray( parts , 1 , parts.length ) , " " );
+        ASTNode parsedValue = parser.unwrap( parser.parse( value ) );
+        if ( parsedValue instanceof TermNode && parsedValue.hasChildren()) {
+            parsedValue = parsedValue.child(0);
+        }
+        context.set( new Identifier( identifier ) , parsedValue );
+        System.out.println("SET "+identifier+" = "+parsedValue);
+    }	
+
+    private void simplify()
+    {
+        if ( term == null ) {
+            System.out.println("No term defined.");
+            return;
+        }
+        term = transformer.simplify( term , context );
+        System.out.println("Simplified: "+term);
+    }
+
+    protected interface IValidator {
 		public boolean validate(ASTNode val1,ASTNode val2, IExpressionContext ctx);
 	}
 	
@@ -122,55 +230,6 @@ public class Main
     	}
     }
     
-    public ASTNode createTerm(int variablesCount,int nodeCount) 
-    {
-    	final List<Identifier> variables = new ArrayList<Identifier>();
-    	for ( int i = 0 ; i < variablesCount ;i++) {
-    		variables.add( new Identifier( Character.toString( (char) ('a'+i) ) ) );
-    	}
-    	
-    	return createNode(variables , 0 , nodeCount);
-    }
-    
-	private ASTNode createNode(List<Identifier> variables,int nodeCount,int maxNodeCount)
-	{
-	    int currentNodeCount = nodeCount;
-		if ( currentNodeCount >= maxNodeCount ) {
-				int v = r.nextInt( variables.size() );
-				return new IdentifierNode( variables.get(v) );			
-		} 
-		
- 		switch( ( r.nextInt(100) % 4 ) ) {
-			case 0: // AND
-				ASTNode result = new OperatorNode(OperatorType.AND);
-				currentNodeCount++;
-				result.addChild( createNode( variables , currentNodeCount,maxNodeCount ) );
-				currentNodeCount++;
-				result.addChild( createNode( variables , currentNodeCount,maxNodeCount ) );
-				return result;
-			case 1: // NOT
-				result = new OperatorNode(OperatorType.NOT);
-				currentNodeCount++;
-				result.addChild( createNode( variables , currentNodeCount,maxNodeCount ) );
-				return result;				
-			case 2: // TERM
-				result = new TermNode();
-				currentNodeCount++;
-				result.addChild( createNode( variables , currentNodeCount,maxNodeCount ) );
-				return result;
-			case 3: // OR
-				result = new OperatorNode(OperatorType.OR);
-				currentNodeCount++;
-				result.addChild( createNode( variables , currentNodeCount,maxNodeCount ) );
-				currentNodeCount++;
-				result.addChild( createNode( variables , currentNodeCount,maxNodeCount ) );
-				return result;
-			default:
-				throw new RuntimeException("Unreachable code reached?");
-		}
-	}
-	
-	
     public ASTNode simplify(final String expr) {
         ASTNode term = parseTerm( expr );
         return simplify( term );
@@ -221,7 +280,7 @@ public class Main
     
     private ASTNode parseTerm(String s) 
     {
-    	return parser.parseTerm( s );
+    	return parser.parse( s );
     }    
     
     private final String padRight(String s , int len) 

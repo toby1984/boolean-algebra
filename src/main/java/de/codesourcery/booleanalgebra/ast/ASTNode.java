@@ -86,35 +86,25 @@ public abstract class ASTNode
         // 3. Traverse the right subtree.        
         final Stack<ASTNode> nodesToVisit = new Stack<ASTNode>();
 
+        nodesToVisit.add( this );
+        
         return new Iterator<ASTNode>() {
-
-            private boolean isNew = true;
-
-            private void addToStack(List<ASTNode> nodes) 
-            {
-                for ( ASTNode n : nodes ) {
-                    nodesToVisit.addAll( reverse( n.children ) );
-                    nodesToVisit.add( n );                     
-                }
-                isNew = false;
-            }
 
             @Override
             public boolean hasNext() {
-                if ( isNew ) {
-                    nodesToVisit.push( ASTNode.this );
-                }
                 return ! nodesToVisit.isEmpty();
             }
 
             @Override
             public ASTNode next() 
             {
-                if ( ! hasNext() ) {
+                if ( nodesToVisit.isEmpty() ) {
                     throw new NoSuchElementException();
                 }
                 ASTNode node = nodesToVisit.pop();
-                addToStack( reverse( node.children ) );
+                for ( ASTNode n : reverse( node.children() ) ) {
+                    nodesToVisit.push( n );
+                }
                 return node;
             }
 
@@ -269,6 +259,20 @@ public abstract class ASTNode
 	public int getTreeDepth() {
 		return getTreeDepth(0);
 	}
+	
+	public List<ASTNode> getPathFromRoot() {
+	    
+	    final List<ASTNode> path = new ArrayList<>();
+	    ASTNode current = this;
+	    do
+	    {
+	        path.add( current );
+	        current = current.getParent();
+	    } while ( current.getParent() != null );
+	    
+	    Collections.reverse( path );
+	    return path;
+	}
 
 	protected int getTreeDepth(int current) 
 	{
@@ -386,11 +390,12 @@ public abstract class ASTNode
 			@Override
 			public boolean visit(ASTNode node, int currentDepth)
 			{
-				writer.println( node.toString() );
+				writer.print( node.toString() );
 				return true;
 			}
 		};
 		visitPreOrder( v );
+		writer.flush();
 	}
 
 

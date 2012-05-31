@@ -189,20 +189,6 @@ public class TermNode extends ASTNode
 
     private void clearStacks(Stack<OperatorNode> operatorStack, Stack<ASTNode> valueStack, ASTNode lastAddedNode)
     {
-        // System.out.println(" ---------- clearing stacks ----------");
-        
-        // System.out.println("**** OPERATORS ***\n");
-//        for ( int i = operatorStack.size()-1 ; i >= 0 ; i-- ) {
-            // System.out.println( i+". "+operatorStack.get(i) );
-//        }
-        
-        // System.out.println("\n*** VALUES ***\n");
-//        for ( int i = valueStack.size()-1 ; i >= 0 ; i-- ) {
-            // System.out.println( i+". "+valueStack.get(i) );
-//        }     
-        
-        // System.out.println(" ---------- start: clearing stacks ----------");        
-        
         if ( operatorStack.isEmpty() && valueStack.size() == 1 ) 
         {
             final ASTNode value = valueStack.pop();
@@ -244,12 +230,14 @@ public class TermNode extends ASTNode
         } 
         else if ( x.getType() == OperatorType.PARENS_CLOSE ) 
         {
-        	ASTNode result = new TermNode();
-        	if ( lastAddedNode == null ) {
-        		addChild( result );
-        	} else {
-        		lastAddedNode.addChild( result );
-        	}
+//        	ASTNode result = new TermNode();
+//        	if ( lastAddedNode == null ) {
+//        		addChild( result );
+//        	} else {
+//        		lastAddedNode.addChild( result );
+//        	}
+        	
+          ASTNode result = lastAddedNode;
         	while ( ! operatorStack.isEmpty() && 
         			operatorStack.peek().getType() != OperatorType.PARENS_OPEN) 
         	{

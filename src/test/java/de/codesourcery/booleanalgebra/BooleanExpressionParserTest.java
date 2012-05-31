@@ -25,7 +25,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "()";
         try {
-            parser.parseTerm( expr );
+            parser.parse( expr );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -36,7 +36,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "not";
         try {
-            parser.parseTerm( expr );
+            parser.parse( expr );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -47,7 +47,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "a and";
         try {
-            parser.parseTerm( expr );
+            parser.parse( expr );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -58,7 +58,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "and a";
         try {
-            parser.parseTerm( expr );
+            parser.parse( expr );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -72,8 +72,7 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseAndExpression() {
         
         final String expr = "a and b";
-        ASTNode term = parser.parseTerm( expr );
-        print(term);
+        ASTNode term = parser.parse( expr );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
@@ -95,6 +94,63 @@ public class BooleanExpressionParserTest extends TestCase
         assertIteratorAtEOF(it);
     }
     
+    public void testParseExpressionWithParens() {
+        
+        final String expr = "(a and b)";
+        ASTNode term = parser.parse( expr );
+        
+        Iterator<ASTNode> it = term.createPreOrderIterator();
+        
+        ASTNode node = it.next();
+        assertTrue( node instanceof TermNode );
+        
+        node = it.next();
+        assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
+        assertEquals( OperatorType.AND , ((OperatorNode) node).getType() );
+        
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("a" , ((IdentifierNode) node).getIdentifier().getValue() );
+        
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("b" , ((IdentifierNode) node).getIdentifier().getValue() );
+        assertIteratorAtEOF(it);
+    }    
+    
+    public void testParseNestedExpression() {
+        
+        final String expr = "not(a and b)";
+        ASTNode term = parser.parse( expr );
+        print( term );
+        
+        Iterator<ASTNode> it = term.createPreOrderIterator();
+        
+        ASTNode node = it.next();
+        assertTrue( node instanceof TermNode );
+        
+        node = it.next();
+        assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
+        assertEquals( OperatorType.NOT , ((OperatorNode) node).getType() );
+        
+        node = it.next();
+        assertTrue( node instanceof TermNode );
+        
+        node = it.next();
+        assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
+        assertEquals( OperatorType.AND , ((OperatorNode) node).getType() );
+        
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("a" , ((IdentifierNode) node).getIdentifier().getValue() );
+        
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("b" , ((IdentifierNode) node).getIdentifier().getValue() );
+        
+        assertIteratorAtEOF(it);
+    }     
+    
     private void assertIteratorAtEOF(Iterator<ASTNode> it ) {
         if ( it.hasNext() ) {
             fail("Iterator should be at EOF but returns "+it.next());
@@ -104,8 +160,7 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseOrExpression() {
         
         final String expr = "a or b";
-        ASTNode term = parser.parseTerm( expr );
-        print(term);
+        ASTNode term = parser.parse( expr );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
@@ -127,11 +182,10 @@ public class BooleanExpressionParserTest extends TestCase
         assertIteratorAtEOF(it);
     }     
     
-    public void testParseN0tExpression() {
+    public void testParseNotExpression() {
         
         final String expr = "not a";
-        ASTNode term = parser.parseTerm( expr );
-        print(term);
+        ASTNode term = parser.parse( expr );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         

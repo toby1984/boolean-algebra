@@ -4,8 +4,7 @@ import java.io.PrintWriter;
 
 import junit.framework.TestCase;
 import de.codesourcery.booleanalgebra.BooleanExpressionParser;
-import de.codesourcery.booleanalgebra.ExpressionContext;
-import de.codesourcery.booleanalgebra.ast.BooleanExpression;
+import de.codesourcery.booleanalgebra.ast.ASTNode;
 
 public class ParserTest extends TestCase 
 {
@@ -14,7 +13,7 @@ public class ParserTest extends TestCase
         
         String expr = "  a   or   not  ((  b  and  c ) or d)  =  e   ";
         
-        BooleanExpression expression = new BooleanExpressionParser().parseExpression( expr );
+        ASTNode expression = new BooleanExpressionParser().parse( expr );
         
         System.out.println("PARSED: "+expression);
         

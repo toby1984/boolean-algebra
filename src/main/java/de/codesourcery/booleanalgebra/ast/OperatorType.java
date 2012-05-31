@@ -9,7 +9,7 @@ public enum OperatorType {
 
     public int getPrecedence() {
         /*
-         * operators by ASCENDING precedence:
+         * operators by ASCENDING precedence (the higher the value the stronger this operator binds):
          * 
          * all others (0)
          * OR (8)
@@ -19,14 +19,16 @@ public enum OperatorType {
          */
         switch( this ) 
         {
+            case PARENS_OPEN:
+                return 100;              
             case NOT:
                 return 10;
             case AND:
                 return 9;
             case OR:
                 return 8;
-            case PARENS_OPEN:
-                return 100;            
+            default:
+                // $FALL-THROUGH$
         }
         return 0;
     }
