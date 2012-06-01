@@ -13,7 +13,7 @@ public class ParserTest extends TestCase
         
         String expr = "  a   or   not  ((  b  and  c ) or d)  =  e   ";
         
-        ASTNode expression = new BooleanExpressionParser().parse( expr );
+        ASTNode expression = new BooleanExpressionParser().parse( expr , false );
         
         System.out.println("PARSED: "+expression);
         
@@ -21,7 +21,7 @@ public class ParserTest extends TestCase
         expression.print( writer );
         writer.flush();
         writer.close();
-        assertEquals("a OR NOT((b AND c) OR d) = e" , expression.toString() );
+        assertEquals("a OR NOT ((b AND c) OR d) = e" , expression.toString() );
 
     }
 }

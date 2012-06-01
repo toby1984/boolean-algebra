@@ -149,20 +149,43 @@ public abstract class ASTNode
 		return changed;
 	}
 	
-	protected static final boolean sortAscending(List<ASTNode> l , Comparator<ASTNode> comp) {
+	protected static final boolean sortAscending(List<ASTNode> nodes , Comparator<ASTNode> comp) {
 		
 		boolean changed = false;
-		final int len = l.size()-1; 
-		for ( int i = 0 ; i < len ; i++ ) {
-			if ( comp.compare( l.get(i) , l.get(i+1) ) > 0 ) {
-				ASTNode temp = l.get(i);
-				l.set( i , l.get(i+1) );
-				l.set( i+1 , temp );
-				changed = true;
+		final int len = nodes.size()-1;
+		for ( int index = 0 ; index < len ; index++ ) 
+		{
+			final ASTNode left = nodes.get(index);
+			final ASTNode right = nodes.get(index+1);
+            
+			final boolean leftIsLeaf =  left.isLeafNode() || ( left instanceof TermNode && left.getChildCount() == 1);
+            final boolean rightIsLeaf =  right.isLeafNode() || ( right instanceof TermNode && right.getChildCount() == 1);
+            
+            boolean swap;
+            if ( leftIsLeaf && rightIsLeaf ) {
+                swap = comp.compare( left , right ) < 0 ;
+			} else if ( rightIsLeaf && ! leftIsLeaf ) {
+			    swap = true;
+			} else {
+			    swap = false;
 			}
+            
+            if ( swap ) {
+                nodes.set( index , right );
+                nodes.set( index+1 , left );
+                changed = true;                
+            }
 		}
 		return changed;
 	}
+	
+	public boolean hasLeftChild() {
+	    return getChildCount() > 0;
+	}
+	
+    public boolean hasRightChild() {
+        return getChildCount() > 1;
+    }	
 	
 	public ASTNode leftChild() {
 		return child(0);
@@ -390,7 +413,8 @@ public abstract class ASTNode
 			@Override
 			public boolean visit(ASTNode node, int currentDepth)
 			{
-				writer.print( node.toString() );
+			    writer.print( node.toString() );
+//				writer.println( node.toString() +" ( "+node.getClass().getSimpleName()+" )");
 				return true;
 			}
 		};
@@ -462,4 +486,24 @@ public abstract class ASTNode
 	}    
 
 	public abstract String toString(boolean prettyPrint);
+
+    public ASTNode getRoot()
+    {
+        ASTNode result = this;
+        while ( result.getParent() != null ) {
+            result = result.getParent();
+        }
+        return result;
+    }
+
+    public void removeChild(ASTNode child)
+    {
+        for ( Iterator<ASTNode> it = children.iterator() ; it.hasNext() ; ) {
+            if ( child == it.next() ) {
+                it.remove();
+                return;
+            }
+        }
+        throw new RuntimeException("Failed to remove node "+child);
+    }
 }

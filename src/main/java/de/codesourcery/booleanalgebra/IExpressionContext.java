@@ -7,6 +7,9 @@ import de.codesourcery.booleanalgebra.ast.Identifier;
 
 public interface IExpressionContext
 {
+    
+    public IExpressionContext createCopy();
+    
     public ASTNode lookup(Identifier identifier);
     
     public ASTNode tryLookup(Identifier identifier);

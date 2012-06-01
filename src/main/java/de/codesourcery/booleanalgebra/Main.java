@@ -11,6 +11,7 @@ import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 
 import de.codesourcery.booleanalgebra.ast.ASTNode;
+import de.codesourcery.booleanalgebra.ast.BooleanExpression;
 import de.codesourcery.booleanalgebra.ast.FalseNode;
 import de.codesourcery.booleanalgebra.ast.Identifier;
 import de.codesourcery.booleanalgebra.ast.TermNode;
@@ -33,9 +34,13 @@ public class Main
     
     public void setTerm(String expr) 
     {
-        term = parser.parse( expr );
+        term = parser.parse( expr , true );
         this.expression = expr;
-        System.out.println("Expression: "+expression+" (parsed: "+term+")" );
+        System.out.println("Expression: "+expression+" (parsed: "+toString( term ) +")" );
+    }
+    
+    private static String toString(ASTNode n) {
+        return n == null ? "<null>" : n.toString( true );
     }
     
     private String readLine() throws IOException {
@@ -90,6 +95,18 @@ public class Main
         }
         else if ( cmd.equals("vars" ) ) {
             showVars();
+        }   
+        else if ( cmd.equals("help" ) ) {
+            printHelp();
+        } 	    
+        else if ( cmd.equals("resetVars" ) ) {
+            resetVars();
+        } 	
+        else if ( cmd.equals("show" ) ) {
+            show();
+        }  	    
+        else if ( cmd.equals("reduce" ) ) {
+            reduce();
         }   	    
         else if ( cmd.equals("restart" ) ) {
             restart();
@@ -103,6 +120,9 @@ public class Main
         else if ( cmd.equals("simplify" ) ) {
             simplify();
         }
+        else if ( cmd.equals("truth" ) ) {
+            printTruthTable();
+        }	    
 	    else if ( cmd.equals("quit" ) ) {
 	        // handled by calling method
 	    } else {
@@ -110,13 +130,83 @@ public class Main
 	    }
     }
 	
+    private void printTruthTable()
+    {
+        if ( term == null ) {
+            System.err.println("No expression defined.");
+            return;
+        }
+        
+        final IValidator validator = new IValidator() {
+
+            private boolean firstRow = true;
+            @Override
+            public boolean validate(IExpressionContext ctx)
+            {
+                ExpressionContext context = (ExpressionContext) ctx;
+                ASTNode evaluated = transformer.reduce( term , ctx.createCopy() ); // note that reduce() will remove variables from the context so we need to pass in a copy here
+                boolean expressionIsFalse = false;
+                if ( evaluated instanceof BooleanExpression) 
+                {
+                    final ASTNode lhs = ((BooleanExpression) evaluated).getLHS();
+                    final ASTNode rhs = ((BooleanExpression) evaluated).getRHS();
+                    expressionIsFalse = ! lhs.isEquivalent( rhs  , ctx );
+                }
+                String value = evaluated.toString(true);
+                if ( expressionIsFalse ) {
+                    value += " (!!)";
+                }
+                if ( firstRow ) 
+                {
+                    System.out.println( context.toString(true , term.toString(true) , value  ) );    
+                    firstRow = false;
+                } else {
+                    System.out.println( context.toString(false , term.toString(true) , value  ) );    
+                }
+                return true;
+            }
+        };
+        transformer.setDebug( false );
+        final List<Identifier> vars = new ArrayList<Identifier>( transformer.gatherIdentifiers( term ) );          
+        assertTermsAreEquivalent(validator , vars );
+        transformer.setDebug( true );
+    }
+
+    private void show()
+    {
+        System.out.println("Expression: \n\n"+toString( term ) );
+        System.out.println("\nVariables:\n\n"+context);
+    }
+
+    private void printHelp()
+    {
+        System.out.println("\n*** HELP ***\n");
+        System.out.println("eval                          - evaluate expression");
+        System.out.println("expr <expression>             - define expression to work with");
+        System.out.println("help                          - show help");
+        System.out.println("reduce                        - try to reduce expression");        
+        System.out.println("restart                       - sets all variables to 'undefined' and reset the expression to the last 'expr' command");
+        System.out.println("resetVars                     - sets all variables to 'undefined'");
+        System.out.println("set <identifier> <expression> - set a variable to a given value/expression");
+        System.out.println("show                          - prints the current expression and variable definitions");
+        System.out.println("simplify                      - try to simplify the expression");
+        System.out.println("truth                         - print truth table");
+        System.out.println("quit                          - terminate application");
+        System.out.println();
+    }
+
+    private void resetVars()
+    {
+        context.clear();
+    }
+
     private void eval()
     {
         if ( expression != null ) 
         {
             ASTNode result = transformer.eval( term , context );
             if ( result == null ) {
-                System.out.println("Failed to evaluate expression "+term);
+                System.out.println("Failed to evaluate expression "+toString( term ));
             } else {
                 System.out.println("EVAL: "+result);
             }
@@ -124,6 +214,22 @@ public class Main
             System.err.println("No expression entered, cannot restart");
         }        
     }	
+    
+    private void reduce()
+    {
+        if ( expression != null ) 
+        {
+            ASTNode result = transformer.reduce( term , context );
+            if ( result == null ) {
+                System.out.println("Failed to reduce expression "+toString( term ));
+            } else {
+                System.out.println("REDUCE: "+result);
+                term = result;
+            }
+        } else {
+            System.err.println("No expression entered, cannot restart");
+        }        
+    }       
 	
     private void showVars()
     {
@@ -161,12 +267,12 @@ public class Main
         }
         final String identifier = parts[0];
         final String value = StringUtils.join( ArrayUtils.subarray( parts , 1 , parts.length ) , " " );
-        ASTNode parsedValue = parser.unwrap( parser.parse( value ) );
+        ASTNode parsedValue = parser.unwrap( parser.parse( value , true ) );
         if ( parsedValue instanceof TermNode && parsedValue.hasChildren()) {
             parsedValue = parsedValue.child(0);
         }
         context.set( new Identifier( identifier ) , parsedValue );
-        System.out.println("SET "+identifier+" = "+parsedValue);
+        System.out.println("SET "+identifier+" = "+toString( parsedValue ) );
     }	
 
     private void simplify()
@@ -176,37 +282,37 @@ public class Main
             return;
         }
         term = transformer.simplify( term , context );
-        System.out.println("Simplified: "+term);
+        System.out.println("Simplified: "+toString( term ) );
     }
 
     protected interface IValidator {
-		public boolean validate(ASTNode val1,ASTNode val2, IExpressionContext ctx);
+		public boolean validate(IExpressionContext ctx);
 	}
 	
-    public void assertTermsAreEquivalent(ASTNode input , ASTNode output) 
+    public void assertTermsAreEquivalent(final ASTNode input , final ASTNode output) 
     {
     	final IValidator v = new IValidator() {
 			
 			@Override
-			public boolean validate(ASTNode term1, ASTNode term2, IExpressionContext context) {
-	    		ASTNode val1 = term1.evaluate( context );
-	    		ASTNode val2 = term2.evaluate( context );
+			public boolean validate(IExpressionContext context) {
+	    		ASTNode val1 = input.evaluate( context );
+	    		ASTNode val2 = output.evaluate( context );
 	    		return val1.isEquivalent( val2 , context); 
 			}
 		};
-		assertTermsAreEquivalent( input , output , v );
+		
+        final List<Identifier> vars = new ArrayList<Identifier>( transformer.gatherIdentifiers( input ) );		
+		assertTermsAreEquivalent( v , vars );
     }
     
-    public void assertTermsAreEquivalent(ASTNode input , ASTNode output,IValidator validator) 
+    public void assertTermsAreEquivalent(IValidator validator,List<Identifier> vars) 
     {
     	ExpressionContext context = new ExpressionContext();
-    	
-    	final List<Identifier> vars = new ArrayList<Identifier>( transformer.gatherIdentifiers( input ) );
     	
     	// size = 1 => 1 << 1 => 2
     	// size = 2 => 1 << 2 => 4
     	long maxValue = vars.isEmpty() ? 0 : 1<< vars.size();
-    	for ( long val = 0 ; val <= maxValue ; val++ ) 
+    	for ( long val = 0 ; val < maxValue ; val++ ) 
     	{
     		int mask = 1;
     		for ( Identifier id : vars ) 
@@ -215,17 +321,14 @@ public class Main
     			context.set( id  , bitValue );
     			mask = mask << 1;
     		}
-    		System.out.println( context );
     		
-    		if ( ! validator.validate( input , output , context ) )
+    		if ( ! validator.validate( context ) )
     		{
     			System.out.println("\n------------------------");
     			System.out.println( "\nVariables:\n\n"+context.toString() );
-    			System.out.println("INPUT: "+input);
     			System.out.println("\n------------------------");
-    			System.out.println("OUTPUT: "+output);
     			
-    			throw new RuntimeException("validator failed for: "+input+" <-> "+output);
+    			throw new RuntimeException("validator failed.");
     		}
     	}
     }
@@ -280,7 +383,7 @@ public class Main
     
     private ASTNode parseTerm(String s) 
     {
-    	return parser.parse( s );
+    	return parser.parse( s , true );
     }    
     
     private final String padRight(String s , int len) 

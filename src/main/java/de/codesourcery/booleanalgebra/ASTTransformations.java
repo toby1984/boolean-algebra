@@ -13,6 +13,7 @@ import de.codesourcery.booleanalgebra.ast.Identifier;
 import de.codesourcery.booleanalgebra.ast.IdentifierNode;
 import de.codesourcery.booleanalgebra.ast.OperatorNode;
 import de.codesourcery.booleanalgebra.ast.TermNode;
+import de.codesourcery.booleanalgebra.ast.TreeMatcher;
 import de.codesourcery.booleanalgebra.ast.TrueNode;
 
 public class ASTTransformations 
@@ -72,8 +73,8 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
     protected ASTNode simplifyTerm(ASTNode term,final IExpressionContext context) {
 
-        debugPrintln("INPUT: "+term.toString());
-
+        debugPrintln("Simplifying "+term.toString(true));
+        
         final Comparator<ASTNode> comp = new Comparator<ASTNode>() {
 
             @Override
@@ -86,17 +87,17 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
         result = reduce( result , context );
 
-        // De Morgansche Gesetze  => not(a and b) = not a or  not b 	
-        //                        => not(a or  b) = not a and not b		
-        boolean simplified = applyLawOfDeMorgan(context,result);
+        int loopCounter = 0;
+        
+        boolean simplified = false;
         do {
             simplified = false;
 
             // sort children (Kommutativgesetz)
-            //			System.out.println("Before sorting: "+result);
-            //			simplified |= result.sortChildrenAscending( comp );
-            //			System.out.println("After sorting: "+result);
-            //			
+			debugPrintln("Before sorting: "+result);
+			simplified |= result.sortChildrenAscending( comp );
+			debugPrintln("After sorting: "+result);
+            			
             // Assoziativgesetz
             // (a and b) and c = a and (b and c) 	
             // (a or b) or c = a or (b or c)
@@ -111,7 +112,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
             // Neutralitätsgesetze  => a and 1 = a 	
             //                      => a or  0 = a
-            simplified |= applyLawOfNeutrality(context, result);		
+            simplified |= applyLawOfIdentity(context, result);		
 
             // Extremalgesetze 	 => a and 0 =0 	
             //                      => a or  1 =1		 
@@ -119,7 +120,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
             // Komplementärgesetze   => a and not a = 0 	
             //                       => a or  not a = 1			
-            simplified |= applyComplementaryLaw(context, result);
+            simplified |= applyLawOfComplements(context, result);
 
             // Absorptionsgesetze 	 => a or (a and b) = a 	
             //                       => a and(a or  b) = a			
@@ -129,16 +130,19 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             // 	a and (b or  c) = (a and b) or  (a and c) 	
             //  a or  (b and c) = (a or  b) and (a or  c)
             simplified |= applyDistributiveLaw(context,result);
+            
+            // De Morgansche Gesetze  => not(a and b) = not a or  not b     
+            //                        => not(a or  b) = not a and not b     
+            simplified = applyLawOfDeMorgan(context,result);            
 
             // De Morgansche Gesetze  => not a or  not b = not(a and b)  	
             //                        => not a and not b = not(a or  b)
-            //			simplified |= applyInverseLawOfDeMorgan(context,result);			
-        } while ( simplified );
+            //			simplified |= applyInverseLawOfDeMorgan(context,result);		
+            loopCounter++;
+        } while ( simplified || loopCounter < 2 );
 
         // get rid of all variables we eliminated
         context.retainOnly( gatherIdentifiers( result ));
-
-        debugPrintln("SIMPLIFIED: "+result.toString());
         return result;
     }
 
@@ -180,10 +184,29 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             ASTNode result) 
     {
 
-        // Assoziativgesetz
-        // (a and b) and c = a and (b and c) 	
-        // (a or b) or c = a or (b or c)		
-
+        /*
+         * Assoziativgesetz:
+         * 
+         * (a and b) and c = a and (b and c)    
+         * (a or b) or c = a or (b or c)
+         *                                
+         *  ( a and b ) and a => ( a and a ) and b
+         *  
+         *          AND                  AND    
+         *         /  \                 /  \   
+         *       AND   a      =>      AND   b   
+         *      /   \                /   \     
+         *     a     b              a     a    
+         *  
+         *  a and ( b and a ) => ( a and a ) and b
+         *  
+         *          AND               AND    
+         *         /  \              /  \    
+         *        a   AND     =>    a   AND  
+         *           /   \             /   \ 
+         *          b     a           a     b          
+         */
+        
         final MutatingNodeVisitor visitor = new MutatingNodeVisitor( context ) {
 
             @Override
@@ -191,7 +214,8 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             {
                 final ASTNode unwrapped = unwrap( node );
 
-                if ( unwrapped.hasParent()  ) {
+                if ( unwrapped.hasParent()  ) 
+                {
                     if ( unwrapped.isAND() ) 
                     {
                         // (a and b) and c = a and (b and c) 	
@@ -199,9 +223,9 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                         ASTNode rightChild = unwrapped.rightChild();
 
                         if ( unwrapped.isAND() &&
-                                rightChild.isLeafNode() && 
-                                isNonTrivialTerm( leftChild ) && 
-                                unwrap( leftChild ).isAND() )
+                             rightChild.isLeafNode() && 
+                             isNonTrivialTerm( leftChild ) && 
+                             unwrap( leftChild ).isAND() )
                         {
                             ASTNode term1 = 
                                     new TermNode( OperatorNode.and(
@@ -256,8 +280,8 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             ASTNode result) 
     {
         // Distributionsgesetz
-        // 	a and (b or  c) = (a and b) or  (a and c) 	
-        //  a or  (b and c) = (a or  b) and (a or  c)
+        // 	case 1: a and (b or  c) = (a and b) or  (a and c) 	
+        //  case 2: a or  (b and c) = (a or  b) and (a or  c)
 
         final MutatingNodeVisitor visitor = new MutatingNodeVisitor( context ) {
 
@@ -265,11 +289,11 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             public void visit(ASTNode node,IExpressionContext context,IIterationContext it) 
             {
                 final ASTNode unwrapped = unwrap( node );
-                if ( unwrapped.hasParent() && ( unwrapped.isAND() || unwrapped.isOR() ) ) 
+                if ( unwrapped.hasParent() && ( unwrapped.isAND() || unwrapped.isOR() ) ) // 
                 {
                     ASTNode leftChild = unwrap( unwrapped.child(0) );
                     ASTNode rightChild = unwrap( unwrapped.child(1) );
-                    if ( unwrapped.isAND() && rightChild.isOR() && leftChild.isLeafNode() ) 
+                    if ( unwrapped.isAND() && rightChild.isOR() && rightChild.getParent() instanceof TermNode && leftChild.isLeafNode() ) // case 1
                     {
                         ASTNode term1 = 
                                 OperatorNode.and( leftChild , unwrap( rightChild.child(0) ) );
@@ -281,7 +305,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                         unwrapped.replaceWith( term );
                         it.astMutated();						
                     } 
-                    else if ( unwrapped.isOR() && rightChild.isAND() && leftChild.isLeafNode() ) 
+                    else if ( unwrapped.isOR() && rightChild.isAND() && rightChild.getParent() instanceof TermNode && leftChild.isLeafNode() ) // case 2
                     {
                         ASTNode term1 = 
                                 OperatorNode.or( leftChild , unwrap( rightChild.child(0) ) );
@@ -398,7 +422,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         return applyInOrder( result , visitor2 );
     }
 
-    private boolean applyLawOfNeutrality(final IExpressionContext context,
+    private boolean applyLawOfIdentity(final IExpressionContext context,
             ASTNode result) 
     {
         // Neutralitätsgesetze   => a and 1 = a 	
@@ -418,7 +442,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
                     if ( leftChild.isEquivalent( neutralElement , context) ) 
                     {
-                        debugPrintln("NEUTRALITY: Replacing "+unwrapped.toString(false)+
+                        debugPrintln("IDENTITY: Replacing "+unwrapped.toString(false)+
                                 " -> "+rightChild);
                         unwrapped.replaceWith( rightChild );
                         it.astMutated();						
@@ -476,7 +500,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         return applyInOrder( result , visitor4 );
     }
 
-    private boolean applyComplementaryLaw(final IExpressionContext context,
+    private boolean applyLawOfComplements(final IExpressionContext context,
             ASTNode result) 
     {
         // Komplementärgesetze   => a and not a=0 	
@@ -499,7 +523,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                         { 
                             final ASTNode result = unwrapped.isAND() ? new FalseNode() : new TrueNode();
 
-                            debugPrintln("COMPLEMENTARY: Replacing "+unwrapped.toString(false)+
+                            debugPrintln("COMPLEMENTS: Replacing "+unwrapped.toString(false)+
                                     " -> "+rightChild);
                             unwrapped.replaceWith( result );
                             it.astMutated();			
@@ -665,10 +689,11 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             @Override
             public void visit(ASTNode node,IExpressionContext context,IIterationContext it) 
             {
-                if ( node.hasParent() && node.hasLiteralValue( context ) ) 
+                if ( node.hasParent() ) 
                 {
                     final ASTNode reduced = node.evaluate( context );
-                    if ( reduced != node )
+                    debugPrintln("REDUCE: "+node+" evaluates to "+reduced);                    
+                    if ( reduced != null && reduced != node && reduced != unwrap( node ) )
                     {
                         debugPrintln("REDUCE: Replacing "+node+" -> "+reduced);
                         node.replaceWith( reduced );
@@ -756,6 +781,28 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         }
 
         protected abstract void visit(ASTNode node,IExpressionContext context,IIterationContext it);
+    }
+    
+    public static abstract class TreeMatchingVisitor extends MutatingNodeVisitor {
+
+        private final TreeMatcher matcher;
+        
+        public TreeMatchingVisitor(IExpressionContext context,TreeMatcher matcher) {
+            super( context );
+            this.matcher = matcher;
+        }
+        
+        @Override
+        protected void visit(ASTNode node, IExpressionContext context, IIterationContext it)
+        {
+            if ( matcher.matches( node ) ) {
+                if ( onMatch( matcher , context ) ) {
+                    it.astMutated();
+                }
+            }
+        }
+        
+        protected abstract boolean onMatch(TreeMatcher matcher,IExpressionContext context);
     }
 
     private void debugPrintln(String message) {

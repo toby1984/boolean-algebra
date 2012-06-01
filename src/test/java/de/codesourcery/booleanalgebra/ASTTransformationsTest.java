@@ -38,14 +38,14 @@ public class ASTTransformationsTest extends TestCase
     public void testMoveToTop() 
     {
         final String expr = "not( (a or b) and (c or d) )";
-        ASTNode term = parser.parse( expr );
+        ASTNode term = parser.parse( expr , true );
         transformer.setDebug( true );
         transformer.simplify( term , new ExpressionContext() );
     }
     
     public void testSimplify() throws FileNotFoundException 
     {
-        for ( int i = 0 ; i < 1000 ; i++ ) 
+        for ( int i = 0 ; i < 10000 ; i++ ) 
         {
             if (  ( i % 1000 ) == 0 ) {
                 System.out.println("Tested "+i+" terms...");
@@ -214,7 +214,7 @@ public class ASTTransformationsTest extends TestCase
     
     private ASTNode parseTerm(String s) 
     {
-        return parser.parse( s );
+        return parser.parse( s , true );
     }    
     
     private final String padRight(String s , int len) 

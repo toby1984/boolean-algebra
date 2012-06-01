@@ -48,4 +48,16 @@ public class ParseContext extends Lexer implements IParseContext {
 		ctx.remove( identifier );
 	}
 
+    @Override
+    public IExpressionContext createCopy()
+    {
+        return ctx.createCopy();
+    }
+
+    @Override
+    public void clear()
+    {
+        ctx.clear();
+    }
+
 }

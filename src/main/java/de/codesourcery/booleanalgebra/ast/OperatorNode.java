@@ -104,10 +104,6 @@ public class OperatorNode extends ASTNode
                 return "NOT( "+childToString(0,prettyPrint)+" )";
             case OR:
                 return childToString(0,prettyPrint)+" OR "+childToString(1,prettyPrint);
-            case PARENS_OPEN:
-                return "(";
-            case PARENS_CLOSE:
-                return ")";                
             default:
                 throw new RuntimeException("Unhandled type "+getType() );
         }

@@ -3,9 +3,7 @@ package de.codesourcery.booleanalgebra.ast;
 public enum OperatorType {
     AND,
     OR,
-    NOT,
-    PARENS_OPEN,
-    PARENS_CLOSE;
+    NOT;
 
     public int getPrecedence() {
         /*
@@ -19,8 +17,6 @@ public enum OperatorType {
          */
         switch( this ) 
         {
-            case PARENS_OPEN:
-                return 100;              
             case NOT:
                 return 10;
             case AND:

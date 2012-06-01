@@ -25,7 +25,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "()";
         try {
-            parser.parse( expr );
+            parser.parse( expr , true );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -36,7 +36,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "not";
         try {
-            parser.parse( expr );
+            parser.parse( expr , true );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -47,7 +47,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "a and";
         try {
-            parser.parse( expr );
+            parser.parse( expr , true );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -58,7 +58,7 @@ public class BooleanExpressionParserTest extends TestCase
         
         final String expr = "and a";
         try {
-            parser.parse( expr );
+            parser.parse( expr , true );
             fail("Should've failed");
         } catch(ParseException e) {
             // ok
@@ -72,14 +72,11 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseAndExpression() {
         
         final String expr = "a and b";
-        ASTNode term = parser.parse( expr );
+        ASTNode term = parser.parse( expr , true );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
         ASTNode node = it.next();
-        assertTrue( node instanceof TermNode );
-        
-        node = it.next();
         assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
         assertEquals( OperatorType.AND , ((OperatorNode) node).getType() );
         
@@ -97,7 +94,7 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseExpressionWithParens() {
         
         final String expr = "(a and b)";
-        ASTNode term = parser.parse( expr );
+        ASTNode term = parser.parse( expr , true );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
@@ -121,15 +118,12 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseNestedExpression() {
         
         final String expr = "not(a and b)";
-        ASTNode term = parser.parse( expr );
+        ASTNode term = parser.parse( expr , true );
         print( term );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
         ASTNode node = it.next();
-        assertTrue( node instanceof TermNode );
-        
-        node = it.next();
         assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
         assertEquals( OperatorType.NOT , ((OperatorNode) node).getType() );
         
@@ -151,6 +145,53 @@ public class BooleanExpressionParserTest extends TestCase
         assertIteratorAtEOF(it);
     }     
     
+    public void testParseNestedExpression2() {
+        
+        final String expr = "a or ( ( b or c ) or a )";
+        
+        System.out.println("INPUT: "+expr);
+        ASTNode term = parser.parse( expr , true );
+        print( term );
+        
+        Iterator<ASTNode> it = term.createPreOrderIterator();
+        
+        ASTNode node = it.next();
+        assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
+        assertEquals( OperatorType.OR , ((OperatorNode) node).getType() );
+        
+        node = it.next();
+        assertTrue( "was: "+node.getClass().getSimpleName(), node instanceof IdentifierNode );
+        assertEquals("a" , ((IdentifierNode) node).getIdentifier().getValue() );           
+        
+        node = it.next();
+        assertTrue( node instanceof TermNode );
+        
+        node = it.next();
+        assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
+        assertEquals( OperatorType.OR , ((OperatorNode) node).getType() );
+        
+        node = it.next();
+        assertTrue( node instanceof TermNode );        
+
+        node = it.next();
+        assertTrue( "was: "+node.getClass() , node instanceof OperatorNode );
+        assertEquals( OperatorType.OR , ((OperatorNode) node).getType() );
+
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("b" , ((IdentifierNode) node).getIdentifier().getValue() );           
+        
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("c" , ((IdentifierNode) node).getIdentifier().getValue() );    
+        
+        node = it.next();
+        assertTrue( node instanceof IdentifierNode );
+        assertEquals("a" , ((IdentifierNode) node).getIdentifier().getValue() );    
+        
+        assertIteratorAtEOF(it);
+    }      
+    
     private void assertIteratorAtEOF(Iterator<ASTNode> it ) {
         if ( it.hasNext() ) {
             fail("Iterator should be at EOF but returns "+it.next());
@@ -160,14 +201,11 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseOrExpression() {
         
         final String expr = "a or b";
-        ASTNode term = parser.parse( expr );
+        ASTNode term = parser.parse( expr , true );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
         ASTNode node = it.next();
-        assertTrue( node instanceof TermNode );
-        
-        node = it.next();
         assertTrue( node instanceof OperatorNode );
         assertEquals( OperatorType.OR , ((OperatorNode) node).getType() );
         
@@ -185,14 +223,11 @@ public class BooleanExpressionParserTest extends TestCase
     public void testParseNotExpression() {
         
         final String expr = "not a";
-        ASTNode term = parser.parse( expr );
+        ASTNode term = parser.parse( expr , true );
         
         Iterator<ASTNode> it = term.createPreOrderIterator();
         
         ASTNode node = it.next();
-        assertTrue( node instanceof TermNode );
-        
-        node = it.next();
         assertTrue( node instanceof OperatorNode );
         assertEquals( OperatorType.NOT , ((OperatorNode) node).getType() );
         
