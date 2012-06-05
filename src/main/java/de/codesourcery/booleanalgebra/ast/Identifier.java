@@ -7,7 +7,7 @@ import org.apache.commons.lang.StringUtils;
 
 public final class Identifier implements Comparable<Identifier>
 {
-    private static final Pattern PATTERN = Pattern.compile("^[\\-_0-9a-zA-Z]$");
+    private static final Pattern PATTERN = Pattern.compile("^[_\\-0-9a-zA-Z]+$");
     
     private final String s;
     

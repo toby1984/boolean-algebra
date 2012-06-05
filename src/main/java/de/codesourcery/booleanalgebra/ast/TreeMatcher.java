@@ -1,23 +1,26 @@
 package de.codesourcery.booleanalgebra.ast;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class TreeMatcher implements INodeMatcher
 {
-    private INodeMatcher thisNodeMatcher;
-    
-    private boolean unwrapParent = false;
-    private boolean unwrapLeftChild = false;
-    private boolean unwrapRightChild = false;
-    
-    private INodeMatcher leftChildMatcher=null;
-    private INodeMatcher rightChildMatcher=null;
+    private boolean unwrapParent;
+    private boolean unwrapLeftChild;
+    private boolean unwrapRightChild;
+
+    private INodeMatcher thisNodeMatcher;    
+    private INodeMatcher leftChildMatcher;
+    private INodeMatcher rightChildMatcher;
+    private INodeMatcher extraMatcher;    
     
     private boolean requiresNodeToHaveParent = true;
     
-    private ASTNode matchedParent= null;
-    private ASTNode matchedLeftChild = null;
-    private ASTNode matchedRightChild = null;
+    private ASTNode matchedParent;
+    private ASTNode matchedLeftChild;
+    private ASTNode matchedRightChild;
     
-    private boolean ignoreChildOrder = true;
+    private boolean ignoreChildOrder = false;
     
     public TreeMatcher() {
     }
@@ -36,13 +39,13 @@ public class TreeMatcher implements INodeMatcher
         return this;
     }
     
-    public TreeMatcher setIgnoreChildOrder(boolean yesNo)
+    public TreeMatcher ignoreChildOrder(boolean yesNo)
     {
         this.ignoreChildOrder = yesNo;
         return this;
     }
     
-    public TreeMatcher setRequiresNodeToHaveParent(boolean yesNo) {
+    public TreeMatcher requireNodeToHaveParent(boolean yesNo) {
         this.requiresNodeToHaveParent = yesNo;
         return this;
     }
@@ -60,51 +63,143 @@ public class TreeMatcher implements INodeMatcher
     public TreeMatcher unwrapRightChild() {
         unwrapRightChild = true;
         return this;
-    }        
+    }     
     
-    protected static final class OperatorTypeMatcher implements INodeMatcher {
-
-        private final OperatorType expectedType;
+    protected abstract class NodeMatchBuilder<T extends NodeMatchBuilder<?>> {
         
-        public OperatorTypeMatcher(OperatorType expectedType)
+        private final List<INodeMatcher> matchers=new ArrayList<>();
+        
+        public final TreeMatcher buildOR() 
         {
-            if (expectedType == null) {
-                throw new IllegalArgumentException("expectedType must not be NULL.");
+            if ( matchers.isEmpty() ) {
+                throw new IllegalStateException("Need at least one matcher");
             }
-            this.expectedType = expectedType;
+            final INodeMatcher m;
+            if ( matchers.size() == 1 ) {
+                m = matchers.get(0);
+            } else {
+                m = CombinedNodeMatcher.matchOR( this.matchers );
+            }
+            return assignMatcher( m );
         }
+        
+        protected abstract TreeMatcher assignMatcher( INodeMatcher matcher);
+        
+        @SuppressWarnings("unchecked")
+        public final T addMatcher(INodeMatcher matcher) 
+        {
+            if (matcher == null) {
+                throw new IllegalArgumentException("matcher must not be NULL.");
+            }
+            
+            this.matchers.add( matcher );
+            return (T) this;
+        }        
+        
+        public final T matchAND() {
+            return addMatcher( OperatorTypeMatcher.matchAND() );
+        }
+        
+        public final T matchOR() {
+            return addMatcher( OperatorTypeMatcher.matchOR() );
+        }    
+        
+        public final T matchNOT() {
+            return addMatcher( OperatorTypeMatcher.matchNOT() );
+        }         
+    }    
+    
+    public class ThisNodeMatchBuilder extends NodeMatchBuilder<ThisNodeMatchBuilder> {
 
         @Override
-        public boolean matches(ASTNode n)
+        protected TreeMatcher assignMatcher(INodeMatcher matcher)
         {
-            return n instanceof OperatorNode && expectedType.equals( ((OperatorNode) n).getType() );
+            if (matcher == null) {
+                throw new IllegalArgumentException("matcher must not be NULL.");
+            }
+            TreeMatcher.this.thisNodeMatcher = matcher;
+            return TreeMatcher.this;
         }
     }
     
-    public TreeMatcher match(INodeMatcher matcher) 
-    {
+    public class LeftChildMatchBuilder extends NodeMatchBuilder<LeftChildMatchBuilder> {
+
+        @Override
+        protected TreeMatcher assignMatcher(INodeMatcher matcher)
+        {
+            if (matcher == null) {
+                throw new IllegalArgumentException("matcher must not be NULL.");
+            }
+            TreeMatcher.this.leftChildMatcher = matcher;
+            return TreeMatcher.this;
+        }
+    }    
+    
+    public class RightChildMatchBuilder extends NodeMatchBuilder<RightChildMatchBuilder> {
+
+        @Override
+        protected TreeMatcher assignMatcher(INodeMatcher matcher)
+        {
+            if (matcher == null) {
+                throw new IllegalArgumentException("matcher must not be NULL.");
+            }
+            TreeMatcher.this.rightChildMatcher = matcher;
+            return TreeMatcher.this;
+        }
+    }        
+    
+    public class ExtraMatchBuilder extends NodeMatchBuilder<ExtraMatchBuilder> {
+
+        @Override
+        protected TreeMatcher assignMatcher(INodeMatcher matcher)
+        {
+            if (matcher == null) {
+                throw new IllegalArgumentException("matcher must not be NULL.");
+            }
+            TreeMatcher.this.extraMatcher = matcher;
+            return TreeMatcher.this;
+        }
+    } 
+    
+    public ExtraMatchBuilder matchExtra() {
+        return new ExtraMatchBuilder();
+    }    
+    
+    public ThisNodeMatchBuilder matchParent() {
+        return new ThisNodeMatchBuilder();
+    }
+    
+    public LeftChildMatchBuilder matchLeftChild() {
+        return new LeftChildMatchBuilder();
+    }    
+    
+    public RightChildMatchBuilder matchRightChild() {
+        return new RightChildMatchBuilder();
+    }      
+    
+    public TreeMatcher leftChildMatcher(INodeMatcher matcher) {
         if (matcher == null) {
             throw new IllegalArgumentException("matcher must not be NULL.");
         }
         
-        if ( thisNodeMatcher != null ) {
-            throw new IllegalStateException("Matcher already set to "+thisNodeMatcher);
+        if ( leftChildMatcher != null ) {
+            throw new IllegalStateException("Left-child matcher already set to "+leftChildMatcher);
         }        
-        thisNodeMatcher = matcher;
+        leftChildMatcher = matcher;
         return this;
     }
     
-    public TreeMatcher matchNOT() {
-        return match( new OperatorTypeMatcher( OperatorType.NOT ) );
-    }
-    
-    public TreeMatcher matchOR() {
-        return match( new OperatorTypeMatcher( OperatorType.OR ) );
+    public TreeMatcher rightChildMatcher(INodeMatcher matcher) {
+        if (matcher == null) {
+            throw new IllegalArgumentException("matcher must not be NULL.");
+        }
+        
+        if ( rightChildMatcher != null ) {
+            throw new IllegalStateException("Right-child matcher already set to "+rightChildMatcher);
+        }        
+        rightChildMatcher = matcher;
+        return this;
     }    
-    
-    public TreeMatcher matchAND() {
-        return match( new OperatorTypeMatcher( OperatorType.OR ) );
-    }       
     
     private boolean isMatchingLeftChild(ASTNode leftChild) 
     {
@@ -115,11 +210,8 @@ public class TreeMatcher implements INodeMatcher
         if ( leftChild == null ) {
             return false;
         }
-        if ( leftChildMatcher.matches( leftChild ) ) {
-            matchedLeftChild = leftChild;
-            return true;
-        }
-        return false;
+        
+        return leftChildMatcher.matches( this, leftChild );
     }    
     
     private boolean isMatchingRightChild(ASTNode rightChild) 
@@ -127,36 +219,49 @@ public class TreeMatcher implements INodeMatcher
         if ( rightChildMatcher == null ) {
             return true;
         }
+        
         if ( rightChild == null ) {
             return false;
         }
-        if ( rightChildMatcher.matches( rightChild ) ) {
-            matchedRightChild = rightChild;
-            return true;
-        }
-        return false;
+        
+        return rightChildMatcher.matches( this, rightChild );
     }   
     
     private boolean hasMatchingChildren(ASTNode parent) {
         
         boolean matches = matchesChildren(  
                 unwrap( leftChild( parent ) , unwrapLeftChild ),
-                unwrap( rightChild( parent ) , unwrapRightChild ) );
+                unwrap( rightChild( parent ) , unwrapRightChild ) 
+        );
         
-        if ( ! matches && ignoreChildOrder ) 
+        if ( matches ) {
+            matchedLeftChild = leftChild(parent);
+            matchedRightChild = rightChild(parent);
+            return true;
+        } 
+        else if ( ignoreChildOrder ) 
         {
-            matchesChildren(  
+            matches = matchesChildren(   
                     unwrap( rightChild( parent ) , unwrapLeftChild ),
-                    unwrap( leftChild( parent ) , unwrapRightChild ) );            
+                    unwrap( leftChild( parent ) , unwrapRightChild ) 
+            );
+            
+            if ( matches ) {
+                matchedLeftChild = rightChild(parent);
+                matchedRightChild = leftChild(parent);
+                return true;                
+            }
         }
         
-        return matches;
+        return false;
     }
     
     private boolean matchesChildren(ASTNode leftChild,ASTNode rightChild)
     {
         boolean matches = isMatchingLeftChild( leftChild );
-        matches |= isMatchingRightChild(rightChild );
+        if ( matches ) {
+            matches &= isMatchingRightChild(rightChild );
+        }
         return matches;
     }
     
@@ -193,10 +298,10 @@ public class TreeMatcher implements INodeMatcher
     }        
     
     @Override
-    public boolean matches(ASTNode n)
+    public boolean matches(TreeMatcher matcher, ASTNode n)
     {
         if ( thisNodeMatcher == null ) {
-            throw new IllegalStateException("Matcher not properly initialized");
+            throw new IllegalStateException("At least the INodeMatcher for the main node needs to be set");
         }
         
         matchedLeftChild = matchedRightChild = matchedParent = null;
@@ -205,11 +310,27 @@ public class TreeMatcher implements INodeMatcher
         if ( requiresNodeToHaveParent && ! matchedNode.hasParent() ) {
             return false;
         }
-        final boolean matches = thisNodeMatcher.matches( matchedNode ) && hasMatchingChildren( matchedNode );
+        boolean matches = thisNodeMatcher.matches( matcher, matchedNode );
         if ( matches ) {
-            matchedParent = matchedNode;
+            matchedParent = n;
+        }
+        
+        if ( matches ) {
+            matches &= hasMatchingChildren( matchedNode );
+        }
+        
+        if ( matches && extraMatcher != null ) {
+            matches &= extraMatcher.matches( this , matchedParent );
+            if ( ! matches ) {
+                matchedParent = null;
+            }
         }
         return matches;
     }
 
+    @Override
+    public String toString()
+    {
+        return "matchedParent="+parentMatch()+" / leftMatch="+leftMatch()+" / rightMatch="+rightMatch();
+    }
 }

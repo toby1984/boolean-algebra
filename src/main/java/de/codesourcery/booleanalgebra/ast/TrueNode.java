@@ -7,7 +7,6 @@ import de.codesourcery.booleanalgebra.lexer.TokenType;
 
 public class TrueNode extends ASTNode
 {
-
     @Override
     protected int getMaxSupportedChildCount()
     {
@@ -65,5 +64,11 @@ public class TrueNode extends ASTNode
 	@Override
 	public boolean isEquals(ASTNode other) {
 		return other instanceof TrueNode;
-	}	
+	}
+
+    @Override
+    protected int thisHashCode()
+    {
+        return 0xdeadbeef;
+    }	
 }

@@ -97,5 +97,11 @@ public class IdentifierNode extends ASTNode
 		}
 		return false;
 	}
+
+    @Override
+    protected int thisHashCode()
+    {
+        return identifier.getValue().hashCode();
+    }
     
 }

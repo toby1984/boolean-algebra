@@ -64,5 +64,11 @@ public class FalseNode extends ASTNode
 	@Override
 	public boolean isEquals(ASTNode other) {
 		return other instanceof FalseNode;
-	}	
+	}
+
+    @Override
+    protected int thisHashCode()
+    {
+        return 0xbeefdead;
+    }	
 }

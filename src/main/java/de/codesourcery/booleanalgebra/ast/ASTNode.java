@@ -234,6 +234,15 @@ public abstract class ASTNode
 	public int getChildCount() {
 		return children.size();
 	}
+	
+	public final int getNodeCount() {
+	    
+	    int result = 1;
+	    for ( ASTNode n : children ) {
+	        result+= n.getNodeCount();
+	    }
+	    return result;
+	}
 
 	public boolean hasChildren() {
 		return ! children.isEmpty();
@@ -437,7 +446,7 @@ public abstract class ASTNode
 			throw new IllegalArgumentException("child must not be NULL.");
 		}
 		if ( getMaxSupportedChildCount() != -1 && children.size() >= getMaxSupportedChildCount() ) {
-			throw new IllegalArgumentException("Node "+this+" supports at most "+getMaxSupportedChildCount()+" child nodes.");
+			throw new IllegalArgumentException("Node "+getClass().getSimpleName()+" ( "+this+") supports at most "+getMaxSupportedChildCount()+" child nodes.");
 		}
 		children.add( child );
 		child.setParent( this );
@@ -505,5 +514,25 @@ public abstract class ASTNode
             }
         }
         throw new RuntimeException("Failed to remove node "+child);
+    }
+    
+    public final int hashCode() {
+        int hash = 1;
+        hash = hash * 17 + thisHashCode();
+        for ( ASTNode child : children ) {
+            hash = hash * 17 + child.hashCode();
+        }
+        return hash;
+    }
+    
+    protected abstract int thisHashCode();
+
+    public int countNodes() {
+        
+        int result = 1;
+        for ( ASTNode child : children ) {
+            result += child.countNodes();
+        }
+        return result;
     }
 }

@@ -1,13 +1,17 @@
 package de.codesourcery.booleanalgebra;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import de.codesourcery.booleanalgebra.ast.ASTNode;
 import de.codesourcery.booleanalgebra.ast.BooleanExpression;
 import de.codesourcery.booleanalgebra.ast.FalseNode;
+import de.codesourcery.booleanalgebra.ast.INodeMatcher;
 import de.codesourcery.booleanalgebra.ast.INodeVisitor;
 import de.codesourcery.booleanalgebra.ast.Identifier;
 import de.codesourcery.booleanalgebra.ast.IdentifierNode;
@@ -74,12 +78,20 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
     protected ASTNode simplifyTerm(ASTNode term,final IExpressionContext context) {
 
         debugPrintln("Simplifying "+term.toString(true));
-        
+
         final Comparator<ASTNode> comp = new Comparator<ASTNode>() {
 
             @Override
-            public int compare(ASTNode o1, ASTNode o2) {
-                return o2.toString().compareTo( o1.toString() );
+            public int compare(ASTNode o1, ASTNode o2) 
+            {
+                if ( o1.isLeafNode() && o2.isLeafNode() ) {
+                    return o2.toString().compareTo( o1.toString() );
+                } else if ( o1.isLeafNode() ) {
+                    return 1;
+                } else if ( o2.isLeafNode() ) {
+                    return -1;
+                }
+                return 0;
             }
         };
 
@@ -88,20 +100,15 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         result = reduce( result , context );
 
         int loopCounter = 0;
-        
-        boolean simplified = false;
+
+        boolean simplified = result.sortChildrenAscending( comp );
         do {
             simplified = false;
 
-            // sort children (Kommutativgesetz)
-			debugPrintln("Before sorting: "+result);
-			simplified |= result.sortChildrenAscending( comp );
-			debugPrintln("After sorting: "+result);
-            			
             // Assoziativgesetz
             // (a and b) and c = a and (b and c) 	
             // (a or b) or c = a or (b or c)
-            simplified = applyLawOfAssociativity(context,result);
+            simplified |= applyLawOfAssociativity(context,result);
 
             // Idempotenzgesetze:    => x and x = x 
             //                       => x or  x = x
@@ -130,7 +137,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             // 	a and (b or  c) = (a and b) or  (a and c) 	
             //  a or  (b and c) = (a or  b) and (a or  c)
             simplified |= applyDistributiveLaw(context,result);
-            
+
             // De Morgansche Gesetze  => not(a and b) = not a or  not b     
             //                        => not(a or  b) = not a and not b     
             simplified = applyLawOfDeMorgan(context,result);            
@@ -157,14 +164,104 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         /*
          *  Task: isolate d
          *  
-         * Initial term: (a or b) and (c or d)
+         * Initial term: (a or b) and (c or d) = true
          * 
          * Step 1: align associated operator (OR) with outer expression so we can re-order the AST nodes
          * 
-         * => (a or b) and (not(c) and not(d) ) // de-morgan
+         * => (a or b) and (not(c) and not(d) ) = true // de-morgan
          * 
-         * =>
+         * =>(a or b) and not(c) and not(d) = true
+         * 
+         * =>  d or ( (a or b) and not(c) and not(d) )  = d or true
+         * 
+         * => * => AND
+         *    + => OR
+         *    
+         *    d + ( ( a + b ) * not(c) * not(d) ) = d + true
+         *    
+         * => d OR (a OR b) AND (d OR NOT (c)) AND (d OR NOT (d)) = d or true
+         * 
+         * =>  
          */
+
+        /*
+            //  a or  (b and c) = (a or  b) and (a or  c)         
+         */
+    }
+
+    public ASTNode substituteCommonTerms(ASTNode tree,IExpressionContext context) {
+
+        ASTNode copy = tree.createCopy( true );
+
+        final Map<Integer,List<ASTNode>> result = new HashMap<>();
+
+        final INodeVisitor visitor = new INodeVisitor() {
+
+            @Override
+            public boolean visit(ASTNode node, int currentDepth)
+            {
+                final Integer hash = node.hashCode();
+                List<ASTNode> existing = result.get( hash );
+                if ( existing == null ) {
+                    existing = new ArrayList<>();
+                    result.put( hash , existing );
+                }
+                existing.add( node );
+                return true;
+            }
+        };
+        tree.visitInOrder( visitor );
+
+        outer:        
+            for ( Map.Entry<Integer,List<ASTNode>> entry : result.entrySet() ) 
+            {
+                final int hash = entry.getKey();
+
+                if ( entry.getValue().size() <= 1 )
+                {
+                    continue;
+                }
+
+                for ( ASTNode n : entry.getValue() ) 
+                {
+                    if ( n instanceof IdentifierNode) 
+                    {
+                        continue outer;
+                    }
+                }
+
+                // create new variable
+                final ASTNode value = entry.getValue().get(0).createCopy(true);
+                final Identifier identifier = context.createIdentifier( value );
+
+                final boolean substituted = replaceMatchingTermsWithVariable(context, copy, hash, identifier);
+
+                if ( substituted ) {
+                    debugPrintln("SUBSTITUTE: "+value+" => "+identifier+" ( "+entry.getValue().size()+" times )");   
+                } else {
+                    context.remove( identifier );
+                } 
+            }
+        return copy;
+    }
+
+    private boolean replaceMatchingTermsWithVariable(IExpressionContext context, ASTNode tree, final int hashToReplace, final Identifier identifier)
+    {
+        final boolean[] substituted = { false };
+        final MutatingNodeVisitor substitutionVisitor = new MutatingNodeVisitor( context ) {
+
+            @Override
+            protected void visit(ASTNode node, IExpressionContext context, IIterationContext it)
+            {
+                if ( node.hashCode() == hashToReplace && node.hasParent() ) {
+                    node.replaceWith( new IdentifierNode( identifier ) );
+                    it.astMutated();
+                    substituted[0] = true;
+                }
+            }
+        };
+        applyPreOrder( tree , substitutionVisitor );
+        return substituted[0];
     }
 
     public Boolean isTrue(BooleanExpression expr,IExpressionContext context) {
@@ -206,7 +303,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
          *           /   \             /   \ 
          *          b     a           a     b          
          */
-        
+
         final MutatingNodeVisitor visitor = new MutatingNodeVisitor( context ) {
 
             @Override
@@ -223,9 +320,9 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                         ASTNode rightChild = unwrapped.rightChild();
 
                         if ( unwrapped.isAND() &&
-                             rightChild.isLeafNode() && 
-                             isNonTrivialTerm( leftChild ) && 
-                             unwrap( leftChild ).isAND() )
+                                rightChild.isLeafNode() && 
+                                isNonTrivialTerm( leftChild ) && 
+                                unwrap( leftChild ).isAND() )
                         {
                             ASTNode term1 = 
                                     new TermNode( OperatorNode.and(
@@ -283,45 +380,90 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         // 	case 1: a and (b or  c) = (a and b) or  (a and c) 	
         //  case 2: a or  (b and c) = (a or  b) and (a or  c)
 
+        
+        final TreeMatcher matcher = new TreeMatcher().ignoreChildOrder( true ).requireNodeToHaveParent( true ).unwrapAll()
+                .matchParent().matchAND().matchOR().buildOR()
+                .matchRightChild().addMatcher( new INodeMatcher() {
+
+                    @Override
+                    public boolean matches(TreeMatcher matcher, ASTNode n)
+                    {
+                        final ASTNode unwrapped = unwrap(matcher.parentMatch());
+                        if ( unwrapped.isOR() ) {
+                            return n.isAND();
+                        }  
+                        if ( unwrapped.isAND() ) {
+                            return n.isOR();
+                        }
+                        throw new RuntimeException("Unreachable code reached");
+                    }
+                } ).buildOR()
+                .matchExtra().addMatcher( new INodeMatcher() {
+
+                    @Override
+                    public boolean matches(TreeMatcher matcher, ASTNode n)
+                    {
+                        return matcher.leftMatch().getNodeCount() != matcher.rightMatch().getNodeCount();
+                    }
+                } ).buildOR();
+                
         final MutatingNodeVisitor visitor = new MutatingNodeVisitor( context ) {
 
             @Override
             public void visit(ASTNode node,IExpressionContext context,IIterationContext it) 
             {
-                final ASTNode unwrapped = unwrap( node );
-                if ( unwrapped.hasParent() && ( unwrapped.isAND() || unwrapped.isOR() ) ) // 
+                
+                if ( ! matcher.matches( matcher , node ) ) {
+                    return;
+                }
+                
+                final ASTNode matchedParent = matcher.parentMatch();
+                final ASTNode leftChild = matcher.leftMatch();
+                final ASTNode rightChild = matcher.rightMatch();
+                
+                final ASTNode leftTerm;
+                final ASTNode rightTerm;
+                final ASTNode replacementTerm;
+                
+                ASTNode unwrappedRight = unwrap( rightChild );
+                if ( unwrap( matchedParent) .isAND() && unwrappedRight.isOR() ) 
                 {
-                    ASTNode leftChild = unwrap( unwrapped.child(0) );
-                    ASTNode rightChild = unwrap( unwrapped.child(1) );
-                    if ( unwrapped.isAND() && rightChild.isOR() && rightChild.getParent() instanceof TermNode && leftChild.isLeafNode() ) // case 1
-                    {
-                        ASTNode term1 = 
-                                OperatorNode.and( leftChild , unwrap( rightChild.child(0) ) );
-                        ASTNode term2 = 
-                                OperatorNode.and( leftChild , unwrap( rightChild.child(1) ) );
-                        ASTNode term = OperatorNode.or( term1  , term2 );
-
-                        debugPrintln("DISTRIBUTIVE LAW: Replacing "+unwrapped.toString(false)+" -> "+term);
-                        unwrapped.replaceWith( term );
-                        it.astMutated();						
-                    } 
-                    else if ( unwrapped.isOR() && rightChild.isAND() && rightChild.getParent() instanceof TermNode && leftChild.isLeafNode() ) // case 2
-                    {
-                        ASTNode term1 = 
-                                OperatorNode.or( leftChild , unwrap( rightChild.child(0) ) );
-                        ASTNode term2 = 
-                                OperatorNode.or( leftChild , unwrap( rightChild.child(1) ) );
-                        ASTNode term = OperatorNode.and( term1  , term2 );
-                        debugPrintln("DISTRIBUTIVE LAW: Replacing "+unwrapped.toString(false)+" -> "+term);
-                        unwrapped.replaceWith( term );
-                        it.astMutated();
-                    }
+                    leftTerm = maybeWrapInTerm( OperatorNode.and( leftChild , unwrappedRight.child(0) ) );
+                    rightTerm = maybeWrapInTerm( OperatorNode.and( leftChild , unwrappedRight.child(1) ) );
+                    replacementTerm = OperatorNode.or( leftTerm  , rightTerm );
                 } 
+                else if ( unwrap( matchedParent).isOR() && unwrappedRight.isAND() ) 
+                {
+                    leftTerm = maybeWrapInTerm( OperatorNode.or( leftChild , unwrappedRight.child(0) ) );
+                    rightTerm = maybeWrapInTerm( OperatorNode.or( leftChild , unwrappedRight.child(1) ) );
+                    replacementTerm = OperatorNode.and( leftTerm  , rightTerm );
+                } else {
+                    throw new RuntimeException("Unreachable code reached => "+matcher);
+                }
+                
+                ASTNode toReplace = matchedParent;
+                if ( ! toReplace.hasParent() ) 
+                {
+                  if ( unwrap( toReplace ) != toReplace ) {
+                      toReplace = unwrap( toReplace );
+                  } else {
+                      throw new RuntimeException("Unreachable code reached");                          
+                  }
+                }
+                
+                debugPrintln("DISTRIBUTIVE LAW: Replacing "+matchedParent.toString(false)+" -> "+replacementTerm);
+                toReplace.replaceWith( replacementTerm );
+                it.astMutated();                
             }
         };
         return applyInOrder( result , visitor );
-
-
+    }
+    
+    protected ASTNode maybeWrapInTerm(ASTNode node) {
+        if ( node.getNodeCount() == 1 ) {
+            return node;
+        }
+        return new TermNode( node );
     }
 
     public ASTNode substituteIdentifiers(ASTNode input,IExpressionContext context) {
@@ -372,7 +514,6 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             ASTNode result) 
     {
         // 1. Idempotenzgesetze ( x and x = x ) / ( x or x ) = x
-
         final MutatingNodeVisitor visitor = new MutatingNodeVisitor( context ) {
 
             @Override
@@ -381,9 +522,9 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                 final ASTNode unwrapped = unwrap( node );
                 if ( unwrapped.hasParent() && ( unwrapped.isAND() || unwrapped.isOR() ) ) 
                 {
-                    final boolean isEquivalent = unwrapped.child(0).isEquivalent( 
-                            unwrapped.child(1) , context 
-                            );
+                    final boolean isEquivalent = unwrap( unwrapped.leftChild() ).isEquivalent( 
+                            unwrap( unwrapped.rightChild() ) , context );
+
                     if ( isEquivalent ) 
                     {
                         debugPrintln("IDEM: Replacing "+unwrapped.toString(false)+" -> "+unwrapped.child(0).toString(false));
@@ -408,11 +549,11 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                 final ASTNode unwrapped = unwrap( node );
                 if ( unwrapped.hasParent() && unwrapped.isNOT() ) 
                 {
-                    if ( unwrap( unwrapped.child(0) ).isNOT() ) 
+                    if ( unwrap( unwrapped.leftChild() ).isNOT() ) 
                     {
                         debugPrintln("NOT-NOT: Replacing "+unwrapped.toString(false)+
-                                " -> "+unwrapped.child(0).child(0).toString(false));
-                        unwrapped.replaceWith( unwrap( unwrapped.child(0) ).child(0) );
+                                " -> "+unwrapped.leftChild().leftChild().toString(false));
+                        unwrapped.replaceWith( unwrap( unwrapped.leftChild() ).leftChild() );
                         it.astMutated();
                     }
                 } 
@@ -524,7 +665,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
                             final ASTNode result = unwrapped.isAND() ? new FalseNode() : new TrueNode();
 
                             debugPrintln("COMPLEMENTS: Replacing "+unwrapped.toString(false)+
-                                    " -> "+rightChild);
+                                    " -> "+result);
                             unwrapped.replaceWith( result );
                             it.astMutated();			
                         }
@@ -679,7 +820,7 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
         } 
         return internalReduce( term , context );        
     }
-    
+
     protected ASTNode internalReduce(ASTNode term,final IExpressionContext context) 
     {
         final ASTNode result = term.createCopy( true );
@@ -691,6 +832,10 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
             {
                 if ( node.hasParent() ) 
                 {
+                    if ( node instanceof IdentifierNode && ! node.hasLiteralValue( context ) ) {
+                        return;
+                    }
+
                     final ASTNode reduced = node.evaluate( context );
                     debugPrintln("REDUCE: "+node+" evaluates to "+reduced);                    
                     if ( reduced != null && reduced != node && reduced != unwrap( node ) )
@@ -706,6 +851,49 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
         applyPostOrder( result , visitor );
         return result;
+    }
+
+    public ASTNode expand(ASTNode term,IExpressionContext context,boolean deleteExpandedVars) 
+    {
+        final ASTNode result = term.createCopy( true );
+
+        final Set<Identifier> expandedIdentifiers = new HashSet<>();
+
+        boolean expanded = false;
+        do 
+        {
+            expanded = false;
+            final MutatingNodeVisitor visitor = new MutatingNodeVisitor( context ) {
+
+                @Override
+                public void visit(ASTNode node,IExpressionContext context,IIterationContext it) 
+                {
+                    final ASTNode unwrapped = unwrap( node );
+                    if ( node.hasParent() && unwrapped instanceof IdentifierNode ) 
+                    {
+                        final ASTNode expanded = unwrapped.evaluate( context );
+                        if ( expanded != null && expanded != unwrapped )
+                        {
+                            debugPrintln("EXPAND: Expanding "+node+" -> "+expanded);
+                            expandedIdentifiers.add( ((IdentifierNode) unwrapped).getIdentifier() );
+                            node.replaceWith( expanded );
+                            it.astMutated();
+                        } 
+                    }
+                }
+            };
+
+            expanded = applyPostOrder( result , visitor );
+        } while ( expanded );
+
+        if ( deleteExpandedVars ) {
+            for ( Identifier id : expandedIdentifiers ) {
+                context.remove( id );
+            }
+        }
+
+        return result;
+
     }
 
     public ASTNode eval(ASTNode term,IExpressionContext context) {
@@ -782,26 +970,26 @@ Assoziativgesetze 	  => (a and b) and c = a and (b and c)
 
         protected abstract void visit(ASTNode node,IExpressionContext context,IIterationContext it);
     }
-    
+
     public static abstract class TreeMatchingVisitor extends MutatingNodeVisitor {
 
         private final TreeMatcher matcher;
-        
+
         public TreeMatchingVisitor(IExpressionContext context,TreeMatcher matcher) {
             super( context );
             this.matcher = matcher;
         }
-        
+
         @Override
         protected void visit(ASTNode node, IExpressionContext context, IIterationContext it)
         {
-            if ( matcher.matches( node ) ) {
+            if ( matcher.matches( matcher, node ) ) {
                 if ( onMatch( matcher , context ) ) {
                     it.astMutated();
                 }
             }
         }
-        
+
         protected abstract boolean onMatch(TreeMatcher matcher,IExpressionContext context);
     }
 

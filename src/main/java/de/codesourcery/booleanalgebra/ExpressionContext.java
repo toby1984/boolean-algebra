@@ -2,11 +2,13 @@ package de.codesourcery.booleanalgebra;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.commons.lang.StringUtils;
 
@@ -51,54 +53,65 @@ public class ExpressionContext implements IExpressionContext {
         return toString( printHeaderRow , null,null );
     }
     
+    private static int width(String s) {
+        final int len = s != null ? s.length() : 0;
+        return len >= "false".length() ? len : "false".length();
+    }
+    
     public String toString(boolean printHeaderRow,String additionalColumnHeader,String additionalColumnValue) 
     {
     	final List<Identifier> keys = new ArrayList<Identifier>( variables.keySet() );
-    	Collections.sort( keys );
+    	
+        Collections.sort( keys , new Comparator<Identifier>() {
+
+            @Override
+            public int compare(Identifier o1, Identifier o2)
+            {
+                final int result = o1.getValue().compareTo( o2.getValue() );
+                if ( o1.getValue().length() < o2.getValue().length() ) {
+                    return -1;
+                }
+                return result;
+            }
+        } );
 
         final List<String> columns = new ArrayList<>();
         final List<String> values = new ArrayList<>();
+        final List<Integer> columnWidths = new ArrayList<>();
         
     	for ( Identifier id : keys ) {
     	    columns.add( id.getValue() );
     	    values.add( variables.get( id ) != null ? variables.get(id).toString(true) : null );
+    	    columnWidths.add( width( id.getValue() ) );
     	}
     	
     	final boolean hasAdditionalColumn = StringUtils.isNotBlank( additionalColumnHeader );
         if ( hasAdditionalColumn ) {
     	    columns.add( additionalColumnHeader );
     	    values.add( additionalColumnValue );
-    	}
-    	
-    	int COL_WIDTH = -1;
-    	for ( String col : columns ) {
-    	    if ( col.length() > COL_WIDTH ) {
-    	        COL_WIDTH =col.length();
-    	    }
-    	}
-    	if ( COL_WIDTH == -1 || COL_WIDTH < "false".length() ) {
-    	    COL_WIDTH = "false".length();
+    	    columnWidths.add( width( additionalColumnHeader ) );
     	}
     	
         StringBuilder buffer= new StringBuilder ();
         
     	// header line
         if ( printHeaderRow ) {
-            printHeaderLine(buffer, columns , COL_WIDTH ,hasAdditionalColumn);
+            printHeaderLine(buffer, columns , columnWidths ,hasAdditionalColumn);
             buffer.append("\n");            
         }
         
-        printSeparatorLine(buffer, columns, COL_WIDTH , hasAdditionalColumn);
+        printSeparatorLine(buffer, columns, columnWidths , hasAdditionalColumn);
         
         buffer.append("\n");
 
-        printValues(buffer, values, COL_WIDTH,hasAdditionalColumn);
+        printValues(buffer, values, columnWidths,hasAdditionalColumn);
         
     	return buffer.toString();
     }
 
-    private void printValues(StringBuilder buffer, final List<String> values, final int COL_WIDTH,boolean separateLastColumn)
+    private void printValues(StringBuilder buffer, final List<String> values, final List<Integer> columnWidths,boolean separateLastColumn)
     {
+        final Iterator<Integer> width = columnWidths.iterator();
         for ( Iterator<String> it = values.iterator() ; it.hasNext() ; )         
     	{
             final String value = it.next();
@@ -108,36 +121,39 @@ public class ExpressionContext implements IExpressionContext {
             }
             
     	    final String stringValue = value != null ? value : "<null>";
-			buffer.append( "|" ).append( padRight( stringValue , COL_WIDTH ) );
+			buffer.append( "|" ).append( padRight( stringValue , width.next() ) );
 			if ( ! it.hasNext() ) {
 			    buffer.append( "|" );			    
 			}
 		}
     }
     
-    private void printHeaderLine(StringBuilder buffer, List<String> columns,int columnWidth,boolean separateLastColumn) 
+    private void printHeaderLine(StringBuilder buffer, List<String> columns,List<Integer> columnWidths,boolean separateLastColumn) 
     {
+        final Iterator<Integer> colWidth = columnWidths.iterator();
         for ( Iterator<String> key = columns.iterator() ; key.hasNext() ; ) 
         {
             final String value = key.next();
             if ( ! key.hasNext() && separateLastColumn ) {
                 buffer.append("|"); 
             }
-            buffer.append("|").append( center( value  , columnWidth ) );
+            buffer.append("|").append( center( value  , colWidth.next() ) );
             if ( ! key.hasNext() ) {
                 buffer.append("|");
             }
         }
     }    
 
-    private void printSeparatorLine(StringBuilder buffer, final List<String> columns, final int COL_WIDTH,boolean separateLastColumn)
+    private void printSeparatorLine(StringBuilder buffer, final List<String> columns, final List<Integer> columnWidths ,boolean separateLastColumn)
     {
+        final Iterator<Integer> colWidth = columnWidths.iterator();
+        
         for ( int i = 0 ; i < columns.size() ; i++ )
         {
             if ( (i+1) >= columns.size() && separateLastColumn ) {
                 buffer.append("+"); 
             }
-            buffer.append("+").append( StringUtils.repeat("-" , COL_WIDTH ) );
+            buffer.append("+").append( StringUtils.repeat("-" , colWidth.next() ) );
             if ( (i+1) >= columns.size() ) {
                 buffer.append("+");
             }
@@ -228,5 +244,20 @@ public class ExpressionContext implements IExpressionContext {
             result.set( id , value != null ? value.createCopy( true ) : null );
         }
         return result;
+    }
+
+    @Override
+    public Identifier createIdentifier(ASTNode value)
+    {
+        final String prefix = "_tmp_";
+        final AtomicLong ID = new AtomicLong(1);
+        String name = "";
+        do {
+            name = prefix + ID.incrementAndGet();
+        } while ( tryLookup( new Identifier( name ) ) != null );
+        
+        final Identifier id = new Identifier( name );
+        set( id , value );
+        return id;
     }
 }

@@ -94,16 +94,24 @@ public class OperatorNode extends ASTNode
         if ( type == null ) {
             return "<operator node without type?>";
         }
+        final boolean leftChildRequiresParens = hasLeftChild() && ! ( leftChild() instanceof TermNode ) && ! leftChild().isLeafNode();
+        final boolean rightChildRequiresParens = hasRightChild() && ! ( rightChild() instanceof TermNode ) && ! rightChild().isLeafNode();
+        
+        final String leftChild = leftChildRequiresParens ? "(" + childToString(0,prettyPrint) + ")" : childToString(0,prettyPrint);
+        final String rightChild;
+        if ( hasRightChild() ) {
+            rightChild = rightChildRequiresParens  ?  "(" + childToString(1,prettyPrint) + ")" : childToString(1,prettyPrint);
+        } else {
+            rightChild = "";
+        }
+        
         switch( getType() ) {
             case AND:
-                return childToString(0,prettyPrint)+" AND "+childToString(1,prettyPrint);
+                return leftChild+" AND "+rightChild;
             case NOT:
-                if ( hasChild( 0 ) && child(0) instanceof TermNode) { // termnode outputs it's own parens anyway
-                    return "NOT "+childToString(0,prettyPrint);
-                }
-                return "NOT( "+childToString(0,prettyPrint)+" )";
+                return "NOT "+leftChild;
             case OR:
-                return childToString(0,prettyPrint)+" OR "+childToString(1,prettyPrint);
+                return leftChild+" OR "+rightChild;
             default:
                 throw new RuntimeException("Unhandled type "+getType() );
         }
@@ -188,5 +196,20 @@ public class OperatorNode extends ASTNode
 		}
 		return false;
 	}
+
+    @Override
+    protected int thisHashCode()
+    {
+        switch( getType() ) {
+            case AND:
+                return 0x2ee1feab;
+            case NOT:
+                return 0x2ee1feac;
+            case OR:
+                return 0x2ee1fead;
+            default:
+                throw new RuntimeException("Unreachable code reached");
+        }
+    }
 
 }

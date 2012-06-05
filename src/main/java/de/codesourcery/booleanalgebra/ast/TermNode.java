@@ -417,4 +417,10 @@ public class TermNode extends ASTNode
 		}
 		return false;
 	}
+
+    @Override
+    protected int thisHashCode()
+    {
+        return 0x8610231f;
+    }
 }

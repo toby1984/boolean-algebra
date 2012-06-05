@@ -72,7 +72,7 @@ public class BooleanExpression extends ASTNode
 
 	@Override
 	protected BooleanExpression copyThisNode() {
-		return new BooleanExpression(child(0),child(1));
+		return new BooleanExpression();
 	}
 
 	@Override
@@ -109,4 +109,10 @@ public class BooleanExpression extends ASTNode
 		}		
 		return false;
 	}
+
+    @Override
+    protected int thisHashCode()
+    {
+        return 0x12fae214;
+    }
 }

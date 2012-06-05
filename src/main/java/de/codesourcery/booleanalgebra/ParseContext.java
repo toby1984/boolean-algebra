@@ -60,4 +60,10 @@ public class ParseContext extends Lexer implements IParseContext {
         ctx.clear();
     }
 
+    @Override
+    public Identifier createIdentifier(ASTNode value)
+    {
+        return ctx.createIdentifier( value );
+    }
+
 }
